@@ -20,6 +20,8 @@
 - Grouped cooldowns (traps share CD, shocks share CD, etc.)
 - Racial and item tracking (PvP trinket, Bauble, racials)
 
+<img width="878" height="796" alt="Image" src="https://github.com/user-attachments/assets/494bb632-55e5-4e15-b958-f83c5ae0f5be" />
+
 ## Files
 
 | File | Lines | Purpose |
