@@ -18,7 +18,7 @@ local min    = math.min
 -------------------------------------------------------------------------------
 local HDR   = "|cff4fc3f7"   -- cyan header
 local WHITE = "|cffffffff"
-local GREEN = "|cff00ff99"
+local GREEN = "|cff00ff00"
 local GOLD  = "|cffFFD700"
 local GRAY  = "|cffaaaaaa"
 local RED   = "|cffff4444"
@@ -32,7 +32,7 @@ local titleBorder = { 0.28, 0.52, 0.92, 0.95 }
 local ROW_A = { 0.02, 0.05, 0.14, 0.45 }
 local ROW_B = { 0.01, 0.04, 0.10, 0.45 }
 
-local PANEL_W, PANEL_H = 620, 540
+local PANEL_W, PANEL_H = 620, 560
 local ROW_H = 28
 
 -------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ local slCount = 0
 local function SetSliderLabel(sl, label, val)
     local name = sl:GetName()
     if name and _G[name .. "Text"] then
-        _G[name .. "Text"]:SetText(GREEN .. label .. ": " .. GOLD .. val .. R)
+        _G[name .. "Text"]:SetText(HDR .. label .. ": " .. val .. R)
     end
 end
 
@@ -132,8 +132,15 @@ local function Btn(parent, text, x, y, w, h, onClick)
 end
 
 -------------------------------------------------------------------------------
---  DropDown
+--  DropDown (closes on outside click, Blizzard arrow texture)
 -------------------------------------------------------------------------------
+local activePopup = nil  -- track which popup is open
+
+local function CloseActivePopup()
+    if activePopup and activePopup:IsShown() then activePopup:Hide() end
+    activePopup = nil
+end
+
 local function DropDown(parent, label, x, y, w, items, getter, setter)
     w = w or 160
     local dd = CreateFrame("Frame", nil, parent); dd:SetSize(w, 24)
@@ -141,20 +148,39 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
     local lbl = dd:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     lbl:SetPoint("BOTTOM", dd, "TOP", 0, 3); lbl:SetText(HDR .. label .. R)
     local sel = dd:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    sel:SetPoint("LEFT", 10, 0)
-    local arrow = dd:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    arrow:SetPoint("RIGHT", -8, 0); arrow:SetText(GRAY .. "▼" .. R)
+    sel:SetPoint("LEFT", 10, 0); sel:SetPoint("RIGHT", -20, 0); sel:SetJustifyH("LEFT")
+
+    -- Blizzard dropdown arrow button
+    local arrowBtn = CreateFrame("Button", nil, dd)
+    arrowBtn:SetSize(20, 24); arrowBtn:SetPoint("RIGHT", 0, 0)
+    local arrowTex = arrowBtn:CreateTexture(nil, "ARTWORK")
+    arrowTex:SetSize(16, 16); arrowTex:SetPoint("CENTER")
+    arrowTex:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
+    arrowBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight")
 
     local popup = CreateFrame("Frame", nil, UIParent)
     popup:SetFrameStrata("FULLSCREEN_DIALOG"); popup:SetWidth(w)
     ApplyPanel(popup); popup:Hide()
+
+    -- Close-on-outside-click overlay
+    local overlay = CreateFrame("Frame", nil, UIParent)
+    overlay:SetAllPoints(UIParent); overlay:SetFrameStrata("FULLSCREEN")
+    overlay:EnableMouse(true); overlay:Hide()
+    overlay:SetScript("OnMouseDown", function()
+        popup:Hide(); overlay:Hide(); activePopup = nil
+    end)
+    popup.overlay = overlay
+
+    popup:SetScript("OnHide", function() overlay:Hide(); activePopup = nil end)
 
     local function Refresh()
         local cur = getter and getter() or ""
         for i = 1, #items, 2 do if items[i] == cur then sel:SetText(WHITE .. (items[i+1] or items[i]) .. R); return end end
         sel:SetText(WHITE .. cur .. R)
     end
-    local function BuildPopup()
+    local function ShowPopup()
+        CloseActivePopup()
+        -- Rebuild children
         for _, k in ipairs({popup:GetChildren()}) do k:Hide(); k:SetParent(nil) end
         popup:SetHeight(#items / 2 * 20 + 6); local yy = -3
         for i = 1, #items, 2 do
@@ -165,16 +191,21 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
             rt:SetPoint("LEFT", 8, 0); rt:SetText(WHITE .. disp .. R)
             row:SetHighlightTexture("Interface\\Tooltips\\UI-Tooltip-Background")
             row:GetHighlightTexture():SetVertexColor(0.31, 0.76, 0.97, 0.12)
-            row:SetScript("OnClick", function() if setter then setter(key) end; Refresh(); popup:Hide() end)
+            row:SetScript("OnClick", function()
+                if setter then setter(key) end; Refresh()
+                popup:Hide(); overlay:Hide(); activePopup = nil
+            end)
         end
+        popup:ClearAllPoints(); popup:SetPoint("TOP", dd, "BOTTOM", 0, -2)
+        popup:Show(); overlay:Show(); activePopup = popup
+    end
+    local function Toggle()
+        if popup:IsShown() then popup:Hide(); overlay:Hide(); activePopup = nil
+        else ShowPopup() end
     end
     dd:EnableMouse(true)
-    dd:SetScript("OnMouseDown", function()
-        if popup:IsShown() then popup:Hide() else
-            popup:ClearAllPoints(); popup:SetPoint("TOP", dd, "BOTTOM", 0, -2)
-            BuildPopup(); popup:Show()
-        end
-    end)
+    dd:SetScript("OnMouseDown", Toggle)
+    arrowBtn:SetScript("OnClick", Toggle)
     Refresh(); dd.Refresh = Refresh; return dd
 end
 
@@ -200,8 +231,9 @@ function PAB:CreateOptionsUI()
     ApplyPanel(f); f:Hide()
     optionsFrame = f
 
-    f:SetScript("OnMouseDown", function(s, btn) if btn == "LeftButton" then s:StartMoving() end end)
+    f:SetScript("OnMouseDown", function(s, btn) if btn == "LeftButton" then CloseActivePopup(); s:StartMoving() end end)
     f:SetScript("OnMouseUp",   function(s) s:StopMovingOrSizing() end)
+    f:SetScript("OnHide", function() CloseActivePopup() end)
 
     -- Title bar (overlapping top border, like NUF)
     local tBar = CreateFrame("Frame", nil, f)
@@ -236,11 +268,15 @@ function PAB:CreateOptionsUI()
     ---------------------------------------------------------------------------
     --  GENERAL SETTINGS
     ---------------------------------------------------------------------------
-    Header(f, 16, -16, "General Settings")
+    -- "General Settings" in green to match NUF style
+    local gsH = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    gsH:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -16)
+    gsH:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
+    gsH:SetText(GREEN .. "General Settings" .. R)
 
     local gsD = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     gsD:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -30)
-    gsD:SetText(GREEN .. "Basic options and frame positioning." .. R)
+    gsD:SetText(WHITE .. "Basic options and frame positioning." .. R)
 
     -- Left column: sliders
     local scaleS = Slider(f, 16, -62, "Scale", format("%.2f", db.scale), 0.5, 2.0, 0.01, 170,
@@ -293,14 +329,20 @@ function PAB:CreateOptionsUI()
         db.iconBorder = s:GetChecked() and true or false; PAB:UpdateAnchors(true) end)
     c6:SetChecked(db.iconBorder)
 
+    -- Grow Direction
+    local growItems = { "RIGHT","Right", "LEFT","Left" }
+    DropDown(f, "Grow Direction", rx, -218, 140, growItems,
+        function() return db.growDirection or "RIGHT" end,
+        function(v) db.growDirection = v; PAB:UpdateAnchors(true) end)
+
     local hint = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    hint:SetPoint("TOPLEFT", f, "TOPLEFT", rx + 4, -206); hint:SetWidth(280); hint:SetJustifyH("LEFT")
-    hint:SetText(GREEN .. "Inspects party members for talent/glyph\nCD reductions. Updates out of combat." .. R)
+    hint:SetPoint("TOPLEFT", f, "TOPLEFT", rx + 150, -218); hint:SetWidth(140); hint:SetJustifyH("LEFT")
+    hint:SetText(GREEN .. "Inspects party\nmembers for CD\nreductions." .. R)
 
     ---------------------------------------------------------------------------
     --  ABILITY EDITOR
     ---------------------------------------------------------------------------
-    local aeY = -234
+    local aeY = -256
     Header(f, 16, aeY, "Ability Editor")
 
     local aeD = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
@@ -336,7 +378,9 @@ function PAB:CreateOptionsUI()
     end)
 
     Btn(f, "Reset Positions", rx, aeY - 52, 140, 24, function()
-        db.positions = {}; PAB:LoadPositions()
+        db.positions = {}
+        PAB:LoadPositions()
+        PAB:UpdateAnchors(true)
         ChatFrame1:AddMessage(HDR .. "PAB" .. R .. ": Positions reset.")
     end)
 
@@ -511,3 +555,26 @@ SlashCmdList["PAB"] = function(msg)
     if msg == "reset" then PABDB = nil; ReloadUI()
     else ToggleOptions() end
 end
+
+-------------------------------------------------------------------------------
+--  InterfaceOptions registration (so it shows in ESC → Interface → AddOns)
+-------------------------------------------------------------------------------
+local ioPanel = CreateFrame("Frame", "PABInterfacePanel", UIParent)
+ioPanel.name = "Party Ability Bars"
+local ioTitle = ioPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+ioTitle:SetPoint("TOPLEFT", 16, -16)
+ioTitle:SetText("|cff4fc3f7Party Ability Bars|r  v2.0")
+local ioDesc = ioPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+ioDesc:SetPoint("TOPLEFT", ioTitle, "BOTTOMLEFT", 0, -12)
+ioDesc:SetText("Type  |cff00d1ff/pab|r  to open the options panel.\nType  |cff00d1ff/pab reset|r  to reset all settings.")
+local ioBtn = CreateFrame("Button", nil, ioPanel, "UIPanelButtonTemplate")
+ioBtn:SetSize(180, 26); ioBtn:SetPoint("TOPLEFT", ioDesc, "BOTTOMLEFT", 0, -16)
+ioBtn:SetText("Open PAB Options")
+ioBtn:SetScript("OnClick", function()
+    HideUIPanel(InterfaceOptionsFrame)
+    if GameMenuFrame and GameMenuFrame:IsShown() then HideUIPanel(GameMenuFrame) end
+    if not optionsFrame then PAB:CreateOptionsUI() end
+    optionsFrame:Show()
+    PAB:RefreshAbilityList()
+end)
+InterfaceOptions_AddCategory(ioPanel)
