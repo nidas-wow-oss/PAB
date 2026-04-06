@@ -166,7 +166,7 @@ local defaultAbilities = {
         [19503]=30, [60192]=28, [13809]=28, [14311]=28, [19574]=120,
         [34490]=20, [23989]=180, [19263]=90, [67481]=60, [53271]=60, [49012]=60,
         [3045]=300,  -- Rapid Fire
-        [34600]=30,  -- Snake Trap
+        [34600]=28,  -- Snake Trap
         [19577]=60,  -- Intimidation
     },
     ["MAGE"] = {
@@ -692,8 +692,11 @@ function PAB:CheckAbility(anchor, ability, cooldown)
     for _, icon in ipairs(anchor.icons) do
         if icon.ability == ability and icon.shouldShow then icon.Start(cooldown) end
         if groupedCooldowns[anchor.class] and groupedCooldowns[anchor.class][ability] then
-            for grp in pairs(groupedCooldowns[anchor.class]) do
-                if grp == icon.ability and icon.shouldShow then icon.Start(cooldown); break end
+            local castGroup = groupedCooldowns[anchor.class][ability]
+            for grp, grpNum in pairs(groupedCooldowns[anchor.class]) do
+                if grpNum == castGroup and grp == icon.ability and icon.shouldShow then
+                    icon.Start(cooldown); break
+                end
             end
         end
         if cooldownResetters[ability] then
