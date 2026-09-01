@@ -1,6 +1,6 @@
 ## Interface: 30300
 ## Author: Nidhaus
-## Title: |cff00d1ffP|r|cff00c8f0A|r|cff00bfe0B|r Party Ability Bars
+## Title: |cffffffffP|r|cffffffffA|r|cffffffffB|r|cff00ff00 |r|cff00ff00P|r|cff00ff00a|r|cff00ff00r|r|cff00ff00t|r|cff00ff00y|r|cff00ff00 |r|cff00ff00A|r|cff00ff00b|r|cff00ff00i|r|cff00ff00l|r|cff00ff00i|r|cff00ff00t|r|cff00ff00y|r|cff00ff00 |r|cff00ff00B|r|cff00ff00a|r|cff00ff00r|r|cff00ff00s|r
 ## Notes: Tracks party member cooldowns in arena/party with auto-detect and custom timers.
 ## SavedVariables: PABDB
 ## Version: 2.0

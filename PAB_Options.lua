@@ -73,6 +73,29 @@ local function Header(parent, x, y, text)
     return fs
 end
 
+-- Thin horizontal divider between sections (same idea as ECD/NUF)
+local function Separator(parent, y, inset)
+    inset = inset or 12
+    local line = parent:CreateTexture(nil, "ARTWORK")
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", parent, "TOPLEFT", inset, y)
+    line:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -inset, y)
+    line:SetTexture("Interface\\Buttons\\WHITE8X8")
+    line:SetVertexColor(0.20, 0.42, 0.72, 0.55)
+    return line
+end
+
+-- Attaches a game tooltip to any frame
+local function AddTooltip(frame, title, body)
+    frame:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(title, 1.0, 0.84, 0.0)
+        if body then GameTooltip:AddLine(body, 0.9, 0.9, 0.9, true) end
+        GameTooltip:Show()
+    end)
+    frame:HookScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
 -------------------------------------------------------------------------------
 --  Checkbox (InterfaceOptionsCheckButtonTemplate, like NidhausUI.Checkbox)
 -------------------------------------------------------------------------------
@@ -96,10 +119,8 @@ end
 -------------------------------------------------------------------------------
 local slCount = 0
 local function SetSliderLabel(sl, label, val)
-    local name = sl:GetName()
-    if name and _G[name .. "Text"] then
-        _G[name .. "Text"]:SetText(HDR .. label .. ": " .. val .. R)
-    end
+    -- Unified NUF style: title stays fixed, only the centered value below updates
+    if sl.valText then sl.valText:SetText(WHITE .. tostring(val) .. R) end
 end
 
 local function Slider(parent, x, y, label, initVal, minV, maxV, step, w, fn)
@@ -109,9 +130,30 @@ local function Slider(parent, x, y, label, initVal, minV, maxV, step, w, fn)
     sl:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     sl:SetMinMaxValues(minV, maxV)
     sl:SetValueStep(step)
-    sl:SetWidth(w)
-    _G[name .. "Low"]:SetText(GRAY .. tostring(minV) .. R)
-    _G[name .. "High"]:SetText(GRAY .. tostring(maxV) .. R)
+    sl:SetWidth(w); sl:SetHeight(14)
+
+    -- Title centered above the slider (cyan, unified style)
+    local title = _G[name .. "Text"]
+    title:ClearAllPoints(); title:SetPoint("BOTTOM", sl, "TOP", 0, 1)
+    title:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    title:SetText(HDR .. label .. R)
+
+    local low = _G[name .. "Low"]; low:ClearAllPoints()
+    low:SetPoint("TOPLEFT", sl, "BOTTOMLEFT", 2, -1)
+    low:SetFont(low:GetFont(), 9)
+    low:SetText(GRAY .. tostring(minV) .. R)
+
+    local high = _G[name .. "High"]; high:ClearAllPoints()
+    high:SetPoint("TOPRIGHT", sl, "BOTTOMRIGHT", -2, -1)
+    high:SetFont(high:GetFont(), 9)
+    high:SetText(GRAY .. tostring(maxV) .. R)
+
+    -- Value centered below (white)
+    local val = sl:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    val:SetPoint("TOP", sl, "BOTTOM", 0, -1)
+    val:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    sl.valText = val
+
     SetSliderLabel(sl, label, initVal)
     sl:SetScript("OnValueChanged", function(self, v) fn(self, v) end)
     return sl
@@ -120,14 +162,31 @@ end
 -------------------------------------------------------------------------------
 --  Button
 -------------------------------------------------------------------------------
+local bdBtnSmall = {
+    bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 8,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
+}
+
 local function Btn(parent, text, x, y, w, h, onClick)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(w or 100, h or 24); btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    ApplyTitle(btn)
-    local t = btn:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local small = (w or 100) <= 60
+    local function ApplyBtnStyle(s)
+        if small then
+            s:SetBackdrop(bdBtnSmall)
+            s:SetBackdropColor(titleBg[1], titleBg[2], titleBg[3], titleBg[4])
+            s:SetBackdropBorderColor(titleBorder[1], titleBorder[2], titleBorder[3], titleBorder[4])
+        else
+            ApplyTitle(s)
+        end
+    end
+    ApplyBtnStyle(btn)
+    local t = btn:CreateFontString(nil, "ARTWORK", small and "GameFontNormalSmall" or "GameFontNormal")
     t:SetPoint("CENTER"); t:SetText(GOLD .. text .. R)
     btn:SetScript("OnEnter", function(s) s:SetBackdropColor(0.10, 0.15, 0.30, 0.90); t:SetText(WHITE .. text .. R) end)
-    btn:SetScript("OnLeave", function(s) ApplyTitle(s); t:SetText(GOLD .. text .. R) end)
+    btn:SetScript("OnLeave", function(s) ApplyBtnStyle(s); t:SetText(GOLD .. text .. R) end)
     btn:SetScript("OnClick", onClick); return btn
 end
 
@@ -248,22 +307,16 @@ function PAB:CreateOptionsUI()
     title:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE")
     title:SetText(GOLD .. "Party Ability Bars" .. R)
 
-    -- Close X (top right corner of frame)
-    local closeBtn = CreateFrame("Button", nil, f)
-    closeBtn:SetSize(24, 24); closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -4)
+    -- Close button (standard round close button, like ECD/NUF)
+    local closeBtn = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
     closeBtn:SetFrameLevel(f:GetFrameLevel() + 5)
-    local ct = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    ct:SetPoint("CENTER"); ct:SetText(RED .. "X" .. R)
     closeBtn:SetScript("OnClick", function() f:Hide() end)
-    closeBtn:SetScript("OnEnter", function() ct:SetText("|cffff6666X|r") end)
-    closeBtn:SetScript("OnLeave", function() ct:SetText(RED .. "X" .. R) end)
 
-    -- Version next to X
-    local ver = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    ver:SetPoint("RIGHT", closeBtn, "LEFT", -4, 0); ver:SetText(GOLD .. "v2.0" .. R)
-
-    local cr = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    cr:SetPoint("BOTTOMRIGHT", -12, 8); cr:SetText(GRAY .. "by Nidhaus" .. R)
+    -- Footer: version and author together at the bottom
+    local cr = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    cr:SetPoint("BOTTOMRIGHT", -12, 8)
+    cr:SetText(GRAY .. "v2.0  |  by Nidhaus" .. R)
 
     ---------------------------------------------------------------------------
     --  GENERAL SETTINGS
@@ -272,7 +325,7 @@ function PAB:CreateOptionsUI()
     local gsH = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     gsH:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -16)
     gsH:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
-    gsH:SetText(GREEN .. "General Settings" .. R)
+    gsH:SetText(HDR .. "General Settings" .. R)
 
     local gsD = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     gsD:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -30)
@@ -324,6 +377,8 @@ function PAB:CreateOptionsUI()
     local c5 = Checkbox(f, rx, -154, "Auto-Detect CD Reductions", function(s)
         db.autoCooldowns = s:GetChecked() and true or false end)
     c5:SetChecked(db.autoCooldowns)
+    AddTooltip(c5, "Auto-Detect CD Reductions",
+        "Inspects party members to detect talents and glyphs that shorten their cooldowns.")
 
     local c6 = Checkbox(f, rx, -180, "Icon Border", function(s)
         db.iconBorder = s:GetChecked() and true or false; PAB:UpdateAnchors(true) end)
@@ -335,19 +390,19 @@ function PAB:CreateOptionsUI()
         function() return db.growDirection or "RIGHT" end,
         function(v) db.growDirection = v; PAB:UpdateAnchors(true) end)
 
-    local hint = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    hint:SetPoint("TOPLEFT", f, "TOPLEFT", rx + 150, -218); hint:SetWidth(140); hint:SetJustifyH("LEFT")
-    hint:SetText(GREEN .. "Inspects party\nmembers for CD\nreductions." .. R)
 
     ---------------------------------------------------------------------------
     --  ABILITY EDITOR
     ---------------------------------------------------------------------------
     local aeY = -256
+    Separator(f, aeY + 12)
     Header(f, 16, aeY, "Ability Editor")
 
+    -- Counter shares the header line (right-aligned over the list) so it costs no extra row
     local aeD = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    aeD:SetPoint("TOPLEFT", f, "TOPLEFT", 16, aeY - 14)
-    aeD:SetText(GREEN .. "Abilities tracked :" .. R)
+    aeD:SetPoint("TOPLEFT", f, "TOPLEFT", 150, aeY)
+    aeD:SetWidth(160); aeD:SetJustifyH("RIGHT")
+    self.abilityCounterFS = aeD
 
     local classItems = {
         "WARRIOR","Warrior", "DEATHKNIGHT","Death Knight", "PALADIN","Paladin",
@@ -381,7 +436,7 @@ function PAB:CreateOptionsUI()
         db.positions = {}
         PAB:LoadPositions()
         PAB:UpdateAnchors(true)
-        ChatFrame1:AddMessage(HDR .. "PAB" .. R .. ": Positions reset.")
+        ChatFrame1:AddMessage(HDR .. "[PAB]" .. R .. " Positions reset.")
     end)
 
     local cdH = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
@@ -391,7 +446,7 @@ function PAB:CreateOptionsUI()
     ---------------------------------------------------------------------------
     --  Spell list (Blizzard FauxScrollFrame)
     ---------------------------------------------------------------------------
-    local listTop = aeY - 30
+    local listTop = aeY - 16
     local listBg = CreateFrame("Frame", nil, f)
     listBg:SetPoint("TOPLEFT", f, "TOPLEFT", 10, listTop)
     listBg:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 30)
@@ -423,6 +478,19 @@ function PAB:CreateOptionsUI()
         local rbg = row:CreateTexture(nil, "BACKGROUND"); rbg:SetAllPoints()
         rbg:SetTexture("Interface\\Tooltips\\UI-Tooltip-Background")
         rbg:SetVertexColor(unpack(i % 2 == 0 and ROW_B or ROW_A))
+        row.bg = rbg
+
+        -- Hover highlight over the whole row
+        local hl = row:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints()
+        hl:SetTexture("Interface\\Tooltips\\UI-Tooltip-Background")
+        hl:SetVertexColor(0.31, 0.76, 0.97, 0.16)
+        row:EnableMouse(true)
+
+        -- Keep the mouse wheel scrolling the list even over a row
+        row:EnableMouseWheel(true)
+        row:SetScript("OnMouseWheel", function(_, delta)
+            if scrollFrame then scrollFrame:GetScript("OnMouseWheel")(scrollFrame, delta) end
+        end)
 
         local cbName = "PABRowChk" .. i
         local cb = CreateFrame("CheckButton", cbName, row, "UICheckButtonTemplate")
@@ -484,6 +552,25 @@ end
 -------------------------------------------------------------------------------
 --  Refresh
 -------------------------------------------------------------------------------
+-- Header counter: enabled / total abilities for the selected class
+function PAB:UpdateAbilityCounter()
+    local fs = self.abilityCounterFS; if not fs then return end
+    local db = self.db; if not db then return end
+    local cls = db.classSelected
+    local abilities = db.abilities[cls]; if not abilities then return end
+
+    local enabledTbl = db.enabledCooldowns[cls]
+    local on, total = 0, 0
+    for ab in pairs(abilities) do
+        total = total + 1
+        if enabledTbl and enabledTbl[ab] then on = on + 1 end
+    end
+
+    fs:SetText(GRAY .. "tracked: " .. R
+        .. (on > 0 and "|cff00ff99" or GRAY) .. on .. R
+        .. GRAY .. " / " .. total .. R)
+end
+
 function PAB:RefreshAbilityList()
     local rows = self.abilityRows; if not rows then return end
     local db = self.db; if not db then return end
@@ -493,6 +580,8 @@ function PAB:RefreshAbilityList()
     local sorted = {}
     for ab, cd in pairs(abilities) do sorted[#sorted + 1] = { name = ab, cd = cd } end
     table.sort(sorted, function(a, b) return a.name < b.name end)
+
+    self:UpdateAbilityCounter()
 
     local total = #sorted; local maxVis = #rows
     if self.scrollFrame then FauxScrollFrame_Update(self.scrollFrame, total, maxVis, ROW_H) end
@@ -537,8 +626,23 @@ function PAB:RefreshAbilityList()
             local checked = db.enabledCooldowns[cls][abName]
             if checked == nil then checked = false; db.enabledCooldowns[cls][abName] = false end
             row.cb:SetChecked(checked)
+
+            -- Zebra background, tinted when the ability is enabled
+            local function TintRow(on)
+                if not row.bg then return end
+                if on then
+                    row.bg:SetVertexColor(0.06, 0.16, 0.28, 0.55)
+                else
+                    row.bg:SetVertexColor(unpack(i % 2 == 0 and ROW_B or ROW_A))
+                end
+            end
+            TintRow(checked)
+
             row.cb:SetScript("OnClick", function(s)
-                db.enabledCooldowns[cls][abName] = s:GetChecked() and true or false
+                local on = s:GetChecked() and true or false
+                db.enabledCooldowns[cls][abName] = on
+                TintRow(on)
+                PAB:UpdateAbilityCounter()
                 PAB:UpdateAnchors(true)
             end)
             row:Show()
@@ -563,10 +667,10 @@ local ioPanel = CreateFrame("Frame", "PABInterfacePanel", UIParent)
 ioPanel.name = "Party Ability Bars"
 local ioTitle = ioPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 ioTitle:SetPoint("TOPLEFT", 16, -16)
-ioTitle:SetText("|cff4fc3f7Party Ability Bars|r  v2.0")
+ioTitle:SetText("|cffFFD700Party Ability Bars|r  v2.0")
 local ioDesc = ioPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 ioDesc:SetPoint("TOPLEFT", ioTitle, "BOTTOMLEFT", 0, -12)
-ioDesc:SetText("Type  |cff00d1ff/pab|r  to open the options panel.\nType  |cff00d1ff/pab reset|r  to reset all settings.")
+ioDesc:SetText("Type  |cff4fc3f7/pab|r  to open the options panel.\nType  |cff4fc3f7/pab reset|r  to reset all settings.")
 local ioBtn = CreateFrame("Button", nil, ioPanel, "UIPanelButtonTemplate")
 ioBtn:SetSize(180, 26); ioBtn:SetPoint("TOPLEFT", ioDesc, "BOTTOMLEFT", 0, -16)
 ioBtn:SetText("Open PAB Options")

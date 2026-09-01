@@ -55,7 +55,7 @@ local activeGUIDS = {}
 -------------------------------------------------------------------------------
 local function print(...)
     for i = 1, select("#", ...) do
-        ChatFrame1:AddMessage("|cff00d1ffPAB|r: " .. select(i, ...))
+        ChatFrame1:AddMessage("|cff4fc3f7[PAB]|r " .. select(i, ...))
     end
 end
 
@@ -916,7 +916,7 @@ local function PAB_OnLoad(self)
     self:LoadPositions()
     self:SetScript("OnUpdate", PAB_OnUpdate)
 
-    print("v2.0 loaded. Type |cff00d1ff/pab|r to open settings.")
+    print("v2.0 loaded. Type |cff4fc3f7/pab|r to open settings.")
 end
 
 PAB:RegisterEvent("VARIABLES_LOADED")
