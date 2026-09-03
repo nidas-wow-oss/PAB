@@ -200,6 +200,26 @@ local function CloseActivePopup()
     activePopup = nil
 end
 
+-- Los nombres de clase, en su color.
+--
+-- La clave de cada item de clase es el token de Blizzard (WARRIOR,
+-- DEATHKNIGHT, ...), asi que alcanza con buscarla en RAID_CLASS_COLORS:
+-- las razas ("Dwarf", "BloodElf", ...) e "Items" no estan en esa tabla y
+-- se quedan en blanco solas, sin necesidad de una lista aparte. Lo mismo
+-- vale para el desplegable de Grow Direction, cuyas claves tampoco estan.
+--
+-- CUSTOM_CLASS_COLORS es lo que exponen los addons que retocan la paleta
+-- de clases; si esta puesto, manda sobre la de Blizzard.
+local function ClassColorCode(key)
+    local t = (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[key])
+        or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[key])
+    if not (t and t.r) then return WHITE end
+    return string.format("|cff%02x%02x%02x",
+        math.floor(t.r * 255 + 0.5),
+        math.floor(t.g * 255 + 0.5),
+        math.floor(t.b * 255 + 0.5))
+end
+
 local function DropDown(parent, label, x, y, w, items, getter, setter)
     w = w or 160
     local dd = CreateFrame("Frame", nil, parent); dd:SetSize(w, 24)
@@ -234,8 +254,8 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
 
     local function Refresh()
         local cur = getter and getter() or ""
-        for i = 1, #items, 2 do if items[i] == cur then sel:SetText(WHITE .. (items[i+1] or items[i]) .. R); return end end
-        sel:SetText(WHITE .. cur .. R)
+        for i = 1, #items, 2 do if items[i] == cur then sel:SetText(ClassColorCode(items[i]) .. (items[i+1] or items[i]) .. R); return end end
+        sel:SetText(ClassColorCode(cur) .. cur .. R)
     end
     local function ShowPopup()
         CloseActivePopup()
@@ -247,7 +267,7 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
             local row = CreateFrame("Button", nil, popup)
             row:SetSize(w - 6, 20); row:SetPoint("TOPLEFT", 3, yy); yy = yy - 20
             local rt = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-            rt:SetPoint("LEFT", 8, 0); rt:SetText(WHITE .. disp .. R)
+            rt:SetPoint("LEFT", 8, 0); rt:SetText(ClassColorCode(key) .. disp .. R)
             row:SetHighlightTexture("Interface\\Tooltips\\UI-Tooltip-Background")
             row:GetHighlightTexture():SetVertexColor(0.31, 0.76, 0.97, 0.12)
             row:SetScript("OnClick", function()
