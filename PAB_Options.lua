@@ -1,8 +1,3 @@
--------------------------------------------------------------------------------
---  PAB  –  Options Panel  (Arcane Style)
---  Author: Nidhaus
---  Colors from NidhausUI.lua Arcane palette
--------------------------------------------------------------------------------
 local PAB = PAB
 if not PAB then return end
 
@@ -13,10 +8,7 @@ local floor  = math.floor
 local max    = math.max
 local min    = math.min
 
--------------------------------------------------------------------------------
---  NidhausUI Arcane palette (exact values from NidhausUI.lua)
--------------------------------------------------------------------------------
-local HDR   = "|cff4fc3f7"   -- cyan header
+local HDR   = "|cff4fc3f7"
 local WHITE = "|cffffffff"
 local GREEN = "|cff00ff00"
 local GOLD  = "|cffFFD700"
@@ -35,9 +27,6 @@ local ROW_B = { 0.01, 0.04, 0.10, 0.45 }
 local PANEL_W, PANEL_H = 620, 560
 local ROW_H = 28
 
--------------------------------------------------------------------------------
---  Backdrops (from NidhausUI.lua)
--------------------------------------------------------------------------------
 local bdPanel = {
     bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -62,9 +51,6 @@ local function ApplyTitle(f)
     f:SetBackdropBorderColor(titleBorder[1], titleBorder[2], titleBorder[3], titleBorder[4])
 end
 
--------------------------------------------------------------------------------
---  Header (cyan, like NidhausUI.Header)
--------------------------------------------------------------------------------
 local function Header(parent, x, y, text)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
@@ -73,7 +59,6 @@ local function Header(parent, x, y, text)
     return fs
 end
 
--- Thin horizontal divider between sections (same idea as ECD/NUF)
 local function Separator(parent, y, inset)
     inset = inset or 12
     local line = parent:CreateTexture(nil, "ARTWORK")
@@ -85,7 +70,6 @@ local function Separator(parent, y, inset)
     return line
 end
 
--- Attaches a game tooltip to any frame
 local function AddTooltip(frame, title, body)
     frame:HookScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -96,9 +80,6 @@ local function AddTooltip(frame, title, body)
     frame:HookScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
--------------------------------------------------------------------------------
---  Checkbox (InterfaceOptionsCheckButtonTemplate, like NidhausUI.Checkbox)
--------------------------------------------------------------------------------
 local chkCount = 0
 local function Checkbox(parent, x, y, label, fn)
     chkCount = chkCount + 1
@@ -114,12 +95,9 @@ local function Checkbox(parent, x, y, label, fn)
     return cb
 end
 
--------------------------------------------------------------------------------
---  Slider (OptionsSliderTemplate, green label + gold value like NidhausUI)
--------------------------------------------------------------------------------
 local slCount = 0
 local function SetSliderLabel(sl, label, val)
-    -- Unified NUF style: title stays fixed, only the centered value below updates
+
     if sl.valText then sl.valText:SetText(WHITE .. tostring(val) .. R) end
 end
 
@@ -132,7 +110,6 @@ local function Slider(parent, x, y, label, initVal, minV, maxV, step, w, fn)
     sl:SetValueStep(step)
     sl:SetWidth(w); sl:SetHeight(14)
 
-    -- Title centered above the slider (cyan, unified style)
     local title = _G[name .. "Text"]
     title:ClearAllPoints(); title:SetPoint("BOTTOM", sl, "TOP", 0, 1)
     title:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
@@ -148,7 +125,6 @@ local function Slider(parent, x, y, label, initVal, minV, maxV, step, w, fn)
     high:SetFont(high:GetFont(), 9)
     high:SetText(GRAY .. tostring(maxV) .. R)
 
-    -- Value centered below (white)
     local val = sl:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     val:SetPoint("TOP", sl, "BOTTOM", 0, -1)
     val:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
@@ -159,9 +135,6 @@ local function Slider(parent, x, y, label, initVal, minV, maxV, step, w, fn)
     return sl
 end
 
--------------------------------------------------------------------------------
---  Button
--------------------------------------------------------------------------------
 local bdBtnSmall = {
     bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -190,26 +163,13 @@ local function Btn(parent, text, x, y, w, h, onClick)
     btn:SetScript("OnClick", onClick); return btn
 end
 
--------------------------------------------------------------------------------
---  DropDown (closes on outside click, Blizzard arrow texture)
--------------------------------------------------------------------------------
-local activePopup = nil  -- track which popup is open
+local activePopup = nil
 
 local function CloseActivePopup()
     if activePopup and activePopup:IsShown() then activePopup:Hide() end
     activePopup = nil
 end
 
--- Los nombres de clase, en su color.
---
--- La clave de cada item de clase es el token de Blizzard (WARRIOR,
--- DEATHKNIGHT, ...), asi que alcanza con buscarla en RAID_CLASS_COLORS:
--- las razas ("Dwarf", "BloodElf", ...) e "Items" no estan en esa tabla y
--- se quedan en blanco solas, sin necesidad de una lista aparte. Lo mismo
--- vale para el desplegable de Grow Direction, cuyas claves tampoco estan.
---
--- CUSTOM_CLASS_COLORS es lo que exponen los addons que retocan la paleta
--- de clases; si esta puesto, manda sobre la de Blizzard.
 local function ClassColorCode(key)
     local t = (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[key])
         or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[key])
@@ -229,7 +189,6 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
     local sel = dd:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     sel:SetPoint("LEFT", 10, 0); sel:SetPoint("RIGHT", -20, 0); sel:SetJustifyH("LEFT")
 
-    -- Blizzard dropdown arrow button
     local arrowBtn = CreateFrame("Button", nil, dd)
     arrowBtn:SetSize(20, 24); arrowBtn:SetPoint("RIGHT", 0, 0)
     local arrowTex = arrowBtn:CreateTexture(nil, "ARTWORK")
@@ -241,7 +200,6 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
     popup:SetFrameStrata("FULLSCREEN_DIALOG"); popup:SetWidth(w)
     ApplyPanel(popup); popup:Hide()
 
-    -- Close-on-outside-click overlay
     local overlay = CreateFrame("Frame", nil, UIParent)
     overlay:SetAllPoints(UIParent); overlay:SetFrameStrata("FULLSCREEN")
     overlay:EnableMouse(true); overlay:Hide()
@@ -259,7 +217,7 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
     end
     local function ShowPopup()
         CloseActivePopup()
-        -- Rebuild children
+
         for _, k in ipairs({popup:GetChildren()}) do k:Hide(); k:SetParent(nil) end
         popup:SetHeight(#items / 2 * 20 + 6); local yy = -3
         for i = 1, #items, 2 do
@@ -288,9 +246,6 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
     Refresh(); dd.Refresh = Refresh; return dd
 end
 
--------------------------------------------------------------------------------
---  MAIN FRAME
--------------------------------------------------------------------------------
 local optionsFrame
 
 local function ToggleOptions()
@@ -314,7 +269,6 @@ function PAB:CreateOptionsUI()
     f:SetScript("OnMouseUp",   function(s) s:StopMovingOrSizing() end)
     f:SetScript("OnHide", function() CloseActivePopup() end)
 
-    -- Title bar (overlapping top border, like NUF)
     local tBar = CreateFrame("Frame", nil, f)
     tBar:SetHeight(26)
     tBar:SetPoint("LEFT", f, "TOP", -140, 0)
@@ -327,21 +281,15 @@ function PAB:CreateOptionsUI()
     title:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE")
     title:SetText(GOLD .. "Party Ability Bars" .. R)
 
-    -- Close button (standard round close button, like ECD/NUF)
     local closeBtn = CreateFrame("Button", nil, f, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
     closeBtn:SetFrameLevel(f:GetFrameLevel() + 5)
     closeBtn:SetScript("OnClick", function() f:Hide() end)
 
-    -- Footer: version and author together at the bottom
     local cr = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     cr:SetPoint("BOTTOMRIGHT", -12, 8)
     cr:SetText(GRAY .. "v2.0  |  by Nidhaus" .. R)
 
-    ---------------------------------------------------------------------------
-    --  GENERAL SETTINGS
-    ---------------------------------------------------------------------------
-    -- "General Settings" in green to match NUF style
     local gsH = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     gsH:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -16)
     gsH:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
@@ -351,7 +299,6 @@ function PAB:CreateOptionsUI()
     gsD:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -30)
     gsD:SetText(WHITE .. "Basic options and frame positioning." .. R)
 
-    -- Left column: sliders
     local scaleS = Slider(f, 16, -62, "Scale", format("%.2f", db.scale), 0.5, 2.0, 0.01, 170,
         function(self, v)
             db.scale = v; SetSliderLabel(self, "Scale", format("%.2f", v))
@@ -375,7 +322,6 @@ function PAB:CreateOptionsUI()
         end)
     spacS:SetValue(db.iconSpacing or 1)
 
-    -- Right column: checkboxes
     local rx = 310
 
     local c1 = Checkbox(f, rx, -50, "Arena Only", function(s)
@@ -404,21 +350,15 @@ function PAB:CreateOptionsUI()
         db.iconBorder = s:GetChecked() and true or false; PAB:UpdateAnchors(true) end)
     c6:SetChecked(db.iconBorder)
 
-    -- Grow Direction
     local growItems = { "RIGHT","Right", "LEFT","Left" }
     DropDown(f, "Grow Direction", rx, -218, 140, growItems,
         function() return db.growDirection or "RIGHT" end,
         function(v) db.growDirection = v; PAB:UpdateAnchors(true) end)
 
-
-    ---------------------------------------------------------------------------
-    --  ABILITY EDITOR
-    ---------------------------------------------------------------------------
     local aeY = -256
     Separator(f, aeY + 12)
     Header(f, 16, aeY, "Ability Editor")
 
-    -- Counter shares the header line (right-aligned over the list) so it costs no extra row
     local aeD = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     aeD:SetPoint("TOPLEFT", f, "TOPLEFT", 150, aeY)
     aeD:SetWidth(160); aeD:SetJustifyH("RIGHT")
@@ -463,9 +403,6 @@ function PAB:CreateOptionsUI()
     cdH:SetPoint("TOPLEFT", f, "TOPLEFT", rx, aeY - 84); cdH:SetWidth(270); cdH:SetJustifyH("LEFT")
     cdH:SetText(GRAY .. "CD field = editable for talent/glyph spells.\nType a custom cooldown and press Enter." .. R)
 
-    ---------------------------------------------------------------------------
-    --  Spell list (Blizzard FauxScrollFrame)
-    ---------------------------------------------------------------------------
     local listTop = aeY - 16
     local listBg = CreateFrame("Frame", nil, f)
     listBg:SetPoint("TOPLEFT", f, "TOPLEFT", 10, listTop)
@@ -500,13 +437,11 @@ function PAB:CreateOptionsUI()
         rbg:SetVertexColor(unpack(i % 2 == 0 and ROW_B or ROW_A))
         row.bg = rbg
 
-        -- Hover highlight over the whole row
         local hl = row:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints()
         hl:SetTexture("Interface\\Tooltips\\UI-Tooltip-Background")
         hl:SetVertexColor(0.31, 0.76, 0.97, 0.16)
         row:EnableMouse(true)
 
-        -- Keep the mouse wheel scrolling the list even over a row
         row:EnableMouseWheel(true)
         row:SetScript("OnMouseWheel", function(_, delta)
             if scrollFrame then scrollFrame:GetScript("OnMouseWheel")(scrollFrame, delta) end
@@ -553,9 +488,6 @@ function PAB:CreateOptionsUI()
     self:RefreshAbilityList()
 end
 
--------------------------------------------------------------------------------
---  Variant lookup
--------------------------------------------------------------------------------
 local variantByName = {}
 do
     local defs = PAB.defaultAbilities
@@ -569,10 +501,6 @@ do
     end
 end
 
--------------------------------------------------------------------------------
---  Refresh
--------------------------------------------------------------------------------
--- Header counter: enabled / total abilities for the selected class
 function PAB:UpdateAbilityCounter()
     local fs = self.abilityCounterFS; if not fs then return end
     local db = self.db; if not db then return end
@@ -647,7 +575,6 @@ function PAB:RefreshAbilityList()
             if checked == nil then checked = false; db.enabledCooldowns[cls][abName] = false end
             row.cb:SetChecked(checked)
 
-            -- Zebra background, tinted when the ability is enabled
             local function TintRow(on)
                 if not row.bg then return end
                 if on then
@@ -670,9 +597,6 @@ function PAB:RefreshAbilityList()
     end
 end
 
--------------------------------------------------------------------------------
---  Slash
--------------------------------------------------------------------------------
 SLASH_PAB1 = "/pab"
 SlashCmdList["PAB"] = function(msg)
     msg = lower(msg or "")
@@ -680,9 +604,6 @@ SlashCmdList["PAB"] = function(msg)
     else ToggleOptions() end
 end
 
--------------------------------------------------------------------------------
---  InterfaceOptions registration (so it shows in ESC → Interface → AddOns)
--------------------------------------------------------------------------------
 local ioPanel = CreateFrame("Frame", "PABInterfacePanel", UIParent)
 ioPanel.name = "Party Ability Bars"
 local ioTitle = ioPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")

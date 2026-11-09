@@ -1,11 +1,3 @@
--------------------------------------------------------------------------------
---  PAB  –  Party Ability Bars  v2.0
---  Author: Nidhaus  (rewrite – original concept by Kollektiv, Vendethiel, Lawz)
---  WotLK 3.3.5a
---  Core logic  –  UI lives in PAB_Options.lua
--------------------------------------------------------------------------------
-
--- Upvalues ---------------------------------------------------------------
 local lower            = string.lower
 local match            = string.match
 local remove           = table.remove
@@ -37,9 +29,6 @@ local GetItemInfo      = GetItemInfo
 local GetTime          = GetTime
 local GetBattlefieldStatus = GetBattlefieldStatus
 
--------------------------------------------------------------------------------
---  Core frames
--------------------------------------------------------------------------------
 local PAB        = CreateFrame("Frame", "PAB", UIParent)
 local PABIcons   = CreateFrame("Frame", nil, UIParent)
 local PABAnchor  = CreateFrame("Frame", nil, UIParent)
@@ -50,9 +39,6 @@ local iconlist    = {}
 local anchors     = {}
 local activeGUIDS = {}
 
--------------------------------------------------------------------------------
---  Chat helper
--------------------------------------------------------------------------------
 local function print(...)
     for i = 1, select("#", ...) do
         ChatFrame1:AddMessage("|cff4fc3f7[PAB]|r " .. select(i, ...))
@@ -63,9 +49,6 @@ local InArena = function()
     return (select(2, IsInInstance()) == "arena")
 end
 
--------------------------------------------------------------------------------
---  SPELL DATA  –  Spec-gated abilities
--------------------------------------------------------------------------------
 local specAbilities = {
     ["ROGUE"] = {
         [14185] = { talentGroup = 3, index = 14 },
@@ -73,16 +56,16 @@ local specAbilities = {
         [36554] = { talentGroup = 3, index = 25 },
         [51690] = { talentGroup = 2, index = 28 },
         [14177] = { talentGroup = 1, index = 13 },
-        [13877] = { talentGroup = 2, index = 17 },  -- Blade Flurry
-        [13750] = { talentGroup = 2, index = 21 },  -- Adrenaline Rush
+        [13877] = { talentGroup = 2, index = 17 },
+        [13750] = { talentGroup = 2, index = 21 },
     },
     ["PRIEST"] = {
         [47585] = { talentGroup = 3, index = 27 },
         [33206] = { talentGroup = 1, index = 25 },
         [15487] = { talentGroup = 3, index = 13 },
         [64044] = { talentGroup = 3, index = 23 },
-        [10060] = { talentGroup = 1, index = 20 },  -- Power Infusion
-        [47788] = { talentGroup = 2, index = 28 },  -- Guardian Spirit
+        [10060] = { talentGroup = 1, index = 20 },
+        [47788] = { talentGroup = 2, index = 28 },
     },
     ["DRUID"] = {
         [53201] = { talentGroup = 1, index = 28 },
@@ -91,7 +74,7 @@ local specAbilities = {
         [50334] = { talentGroup = 2, index = 30 },
         [17116] = { talentGroup = 3, index = 12 },
         [18562] = { talentGroup = 3, index = 18 },
-        [50516] = { talentGroup = 1, index = 26 },  -- Typhoon
+        [50516] = { talentGroup = 1, index = 26 },
     },
     ["HUNTER"] = {
         [19574] = { talentGroup = 1, index = 18 },
@@ -99,7 +82,7 @@ local specAbilities = {
         [34490] = { talentGroup = 2, index = 24 },
         [19503] = { talentGroup = 3, index = 9  },
         [49012] = { talentGroup = 3, index = 20 },
-        [19577] = { talentGroup = 1, index = 12 },  -- Intimidation
+        [19577] = { talentGroup = 1, index = 12 },
     },
     ["MAGE"] = {
         [12043] = { talentGroup = 1, index = 16 },
@@ -107,9 +90,9 @@ local specAbilities = {
         [42950] = { talentGroup = 2, index = 25 },
         [11958] = { talentGroup = 3, index = 14 },
         [44572] = { talentGroup = 3, index = 28 },
-        [12042] = { talentGroup = 1, index = 24 },  -- Arcane Power
-        [11113] = { talentGroup = 2, index = 19 },  -- Blast Wave
-        [12472] = { talentGroup = 3, index = 10 },  -- Icy Veins
+        [12042] = { talentGroup = 1, index = 24 },
+        [11113] = { talentGroup = 2, index = 19 },
+        [12472] = { talentGroup = 3, index = 10 },
     },
     ["PALADIN"] = {
         [31821] = { talentGroup = 1, index = 6  },
@@ -117,28 +100,28 @@ local specAbilities = {
         [64205] = { talentGroup = 2, index = 6  },
         [48827] = { talentGroup = 2, index = 22 },
         [66008] = { talentGroup = 3, index = 18 },
-        [20216] = { talentGroup = 1, index = 12 },  -- Divine Favor
-        [31842] = { talentGroup = 1, index = 22 },  -- Divine Illumination
+        [20216] = { talentGroup = 1, index = 12 },
+        [31842] = { talentGroup = 1, index = 22 },
     },
     ["SHAMAN"] = {
         [16188] = { talentGroup = 3, index = 13 },
         [16166] = { talentGroup = 1, index = 16 },
         [51490] = { talentGroup = 1, index = 25 },
         [30823] = { talentGroup = 2, index = 26 },
-        [51533] = { talentGroup = 2, index = 30 },  -- Feral Spirit
-        [16190] = { talentGroup = 3, index = 20 },  -- Mana Tide Totem
+        [51533] = { talentGroup = 2, index = 30 },
+        [16190] = { talentGroup = 3, index = 20 },
     },
     ["WARLOCK"] = {
         [47847] = { talentGroup = 3, index = 23 },
         [18708] = { talentGroup = 2, index = 10 },
-        [59672] = { talentGroup = 2, index = 26 },  -- Metamorphosis
+        [59672] = { talentGroup = 2, index = 26 },
     },
     ["WARRIOR"] = {
         [46924] = { talentGroup = 1, index = 31 },
         [12809] = { talentGroup = 3, index = 14 },
         [46968] = { talentGroup = 3, index = 27 },
-        [12292] = { talentGroup = 2, index = 13 },  -- Death Wish
-        [12975] = { talentGroup = 3, index = 7  },  -- Last Stand
+        [12292] = { talentGroup = 2, index = 13 },
+        [12975] = { talentGroup = 3, index = 7  },
     },
     ["DEATHKNIGHT"] = {
         [49039] = { talentGroup = 2, index = 8  },
@@ -146,111 +129,105 @@ local specAbilities = {
         [51271] = { talentGroup = 2, index = 24 },
         [51052] = { talentGroup = 3, index = 22 },
         [49206] = { talentGroup = 3, index = 31 },
-        [49016] = { talentGroup = 1, index = 23 },  -- Unholy Frenzy
-        [48982] = { talentGroup = 1, index = 11 },  -- Rune Tap
-        [55233] = { talentGroup = 1, index = 21 },  -- Vampiric Blood
+        [49016] = { talentGroup = 1, index = 23 },
+        [48982] = { talentGroup = 1, index = 11 },
+        [55233] = { talentGroup = 1, index = 21 },
     },
 }
 
--------------------------------------------------------------------------------
---  Default abilities with BASE cooldowns
--------------------------------------------------------------------------------
 local defaultAbilities = {
     ["DRUID"] = {
         [29166]=180, [22812]=60, [8983]=60, [53201]=60, [50334]=180,
         [61336]=180, [16979]=15, [18562]=13, [17116]=180,
-        [1850]=300,  -- Dash
-        [50516]=20,  -- Typhoon
+        [1850]=300,
+        [50516]=20,
     },
     ["HUNTER"] = {
         [19503]=30, [60192]=28, [13809]=28, [14311]=28, [19574]=120,
         [34490]=20, [23989]=180, [19263]=90, [67481]=60, [53271]=60, [49012]=60,
-        [3045]=300,  -- Rapid Fire
-        [34600]=28,  -- Snake Trap
-        [19577]=60,  -- Intimidation
+        [3045]=300,
+        [34600]=28,
+        [19577]=60,
     },
     ["MAGE"] = {
         [1953]=15, [2139]=24, [44572]=30, [12051]=240, [45438]=300,
         [11958]=384, [12043]=60, [11129]=120, [42950]=20,
-        [122]=25,    -- Frost Nova
-        [12042]=180, -- Arcane Power
-        [11113]=30,  -- Blast Wave
-        [12472]=180, -- Icy Veins
+        [122]=25,
+        [12042]=180,
+        [11113]=30,
+        [12472]=180,
     },
     ["PALADIN"] = {
         [10308]=60, [1044]=25, [54428]=60, [6940]=120, [10278]=180,
         [642]=300, [31821]=120, [66008]=60, [64205]=120, [48825]=6, [48827]=30,
-        [31884]=180, -- Avenging Wrath
-        [20216]=120, -- Divine Favor
-        [31842]=180, -- Divine Illumination
+        [31884]=180,
+        [20216]=120,
+        [31842]=180,
     },
     ["PRIEST"] = {
         [10890]=30, [48158]=12, [47585]=120, [33206]=180, [15487]=45,
         [64044]=120, [34433]=300, [6346]=180,
-        [10060]=96,  -- Power Infusion
-        [47788]=180, -- Guardian Spirit
-        [19236]=120, -- Desperate Prayer
-        [64843]=480, -- Divine Hymn
-        [64901]=360, -- Hymn of Hope
+        [10060]=96,
+        [47788]=180,
+        [19236]=120,
+        [64843]=480,
+        [64901]=360,
     },
     ["ROGUE"] = {
         [1766]=10, [8643]=20, [31224]=90, [51722]=60, [2094]=180,
         [26889]=180, [14185]=300, [51713]=60, [51690]=120, [14177]=180, [36554]=20,
-        [5277]=180,  -- Evasion
-        [13877]=120, -- Blade Flurry
-        [13750]=180, -- Adrenaline Rush
+        [5277]=180,
+        [13877]=120,
+        [13750]=180,
     },
     ["SHAMAN"] = {
         [57994]=6, [51514]=45, [16188]=120, [8177]=15,
         [51490]=45, [30823]=60, [16166]=180,
-        [51533]=180, -- Feral Spirit
-        [16190]=300, -- Mana Tide Totem
+        [51533]=180,
+        [16190]=300,
     },
     ["WARLOCK"] = {
         [19647]=24, [17925]=120, [18708]=180, [48011]=8,
         [48020]=30, [47847]=20,
-        [5484]=40,   -- Howl of Terror
-        [59672]=180, -- Metamorphosis
+        [5484]=40,
+        [59672]=180,
     },
     ["WARRIOR"] = {
         [6552]=10, [72]=12, [11578]=15, [47996]=30, [46924]=90,
         [871]=300, [2565]=60, [676]=60, [12809]=30, [46968]=20,
-        [1719]=300,  -- Recklessness
-        [3411]=30,   -- Intervene
-        [5246]=120,  -- Intimidating Shout
-        [18499]=30,  -- Berserker Rage
-        [23920]=10,  -- Spell Reflection
-        [20230]=300, -- Retaliation
-        [55694]=180, -- Enraged Regeneration
-        [12292]=180, -- Death Wish
-        [12975]=180, -- Last Stand
+        [1719]=300,
+        [3411]=30,
+        [5246]=120,
+        [18499]=30,
+        [23920]=10,
+        [20230]=300,
+        [55694]=180,
+        [12292]=180,
+        [12975]=180,
     },
     ["DEATHKNIGHT"] = {
         [47528]=10, [47481]=20, [48743]=120, [49206]=180, [51052]=120,
         [49576]=35, [48707]=45, [47476]=120, [49039]=120, [49203]=60,
         [51271]=60, [48792]=120,
-        [49016]=180, -- Unholy Frenzy
-        [48982]=40,  -- Rune Tap
-        [55233]=60,  -- Vampiric Blood
+        [49016]=180,
+        [48982]=40,
+        [55233]=60,
     },
-    -- Racials
+
     ["Scourge"]  = { [7744]=120,  [42292]=120 },
     ["BloodElf"] = { [28730]=120, [42292]=120 },
     ["Tauren"]   = { [20549]=120, [42292]=120 },
-    ["Orc"]      = { [42292]=120, [20572]=120 },   -- Blood Fury
-    ["Troll"]    = { [42292]=120, [26297]=180 },   -- Berserking
-    ["NightElf"] = { [42292]=120, [58984]=120 },   -- Shadowmeld
-    ["Draenei"]  = { [42292]=120, [28880]=180 },   -- Gift of the Naaru
+    ["Orc"]      = { [42292]=120, [20572]=120 },
+    ["Troll"]    = { [42292]=120, [26297]=180 },
+    ["NightElf"] = { [42292]=120, [58984]=120 },
+    ["Draenei"]  = { [42292]=120, [28880]=180 },
     ["Human"]    = { [59752]=120 },
-    ["Gnome"]    = { [42292]=120, [20589]=60 },    -- Escape Artist
+    ["Gnome"]    = { [42292]=120, [20589]=60 },
     ["Dwarf"]    = { [20594]=120, [42292]=120 },
-    -- Items
+
     ["Items"]    = { [71607]=120 },
 }
 
--------------------------------------------------------------------------------
---  Cooldown Variants  –  talent/glyph-reducible spells
--------------------------------------------------------------------------------
 local cooldownVariants = {
     [10308] = { base=60,  min=40,  talentTab=3, talentIndex=3,  talentPoints=2, reductionPerPoint=10,    desc="Improved HoJ (Ret)" },
     [51490] = { base=45,  min=35,  glyphID=63291, glyphReduction=10,                                    desc="Glyph of Thunder" },
@@ -271,9 +248,6 @@ local cooldownVariants = {
 }
 for id, data in pairs(cooldownVariants) do data.spellID = id end
 
--------------------------------------------------------------------------------
---  Item-to-spell mapping
--------------------------------------------------------------------------------
 local itemForSpell = {}
 do
     local name = GetSpellInfo(71607)
@@ -281,9 +255,6 @@ do
     if name then itemForSpell[name] = item end
 end
 
--------------------------------------------------------------------------------
---  Icon path cache
--------------------------------------------------------------------------------
 local iconPaths = {}
 do
     local n1 = GetSpellInfo(71607)
@@ -292,9 +263,6 @@ do
     if n2 then iconPaths[n2] = "Interface\\Icons\\Inv_jewelry_trinketpvp_02" end
 end
 
--------------------------------------------------------------------------------
---  convertspellids  –  ID-keyed → spellName-keyed
--------------------------------------------------------------------------------
 local function convertspellids(t, fillwith)
     local temp = {}
     for class, tbl in pairs(t) do
@@ -312,21 +280,20 @@ end
 
 local allCooldownIds = convertspellids(defaultAbilities, true)
 
--- New spells added from TPT: default to OFF so they don't spam
 do
     local newSpellIds = {
-        1850, 50516,                             -- Druid: Dash, Typhoon
-        3045, 34600, 19577,                      -- Hunter: Rapid Fire, Snake Trap, Intimidation
-        122, 12042, 11113, 12472,                -- Mage: Frost Nova, Arcane Power, Blast Wave, Icy Veins
-        31884, 20216, 31842,                     -- Paladin: Avenging Wrath, Divine Favor, Divine Illumination
-        10060, 47788, 19236, 64843, 64901,       -- Priest: Power Infusion, Guardian Spirit, Desperate Prayer, Divine Hymn, Hymn of Hope
-        5277, 13877, 13750,                      -- Rogue: Evasion, Blade Flurry, Adrenaline Rush
-        51533, 16190,                            -- Shaman: Feral Spirit, Mana Tide Totem
-        5484, 59672,                             -- Warlock: Howl of Terror, Metamorphosis
-        1719, 3411, 5246, 18499, 23920, 20230,   -- Warrior
-        55694, 12292, 12975,                     -- Warrior: Enraged Regen, Death Wish, Last Stand
-        49016, 48982, 55233,                     -- DK: Unholy Frenzy, Rune Tap, Vampiric Blood
-        58984, 20589, 28880, 20572, 26297,       -- Racials: Shadowmeld, Escape Artist, Gift of Naaru, Blood Fury, Berserking
+        1850, 50516,
+        3045, 34600, 19577,
+        122, 12042, 11113, 12472,
+        31884, 20216, 31842,
+        10060, 47788, 19236, 64843, 64901,
+        5277, 13877, 13750,
+        51533, 16190,
+        5484, 59672,
+        1719, 3411, 5246, 18499, 23920, 20230,
+        55694, 12292, 12975,
+        49016, 48982, 55233,
+        58984, 20589, 28880, 20572, 26297,
     }
     for _, id in ipairs(newSpellIds) do
         local spName = GetSpellInfo(id)
@@ -350,18 +317,18 @@ local groupedCooldowns = {
 groupedCooldowns = convertspellids(groupedCooldowns)
 
 local cooldownResetters = {
-    [11958] = { -- Cold Snap
+    [11958] = {
         [42931]=1,[42917]=1,[43012]=1,[43039]=1,[45438]=1,[31687]=1,[44572]=1,[12472]=1,
-        [122]=1,    -- Frost Nova (base ID)
+        [122]=1,
     },
-    [14185] = { -- Preparation
+    [14185] = {
         [14177]=1,[26669]=1,[11305]=1,[26889]=1,[36554]=1,[1766]=10,[51722]=60,
-        [5277]=1,   -- Evasion
+        [5277]=1,
     },
-    [23989] = { -- Readiness
+    [23989] = {
         [19503]=1,[60192]=1,[13809]=1,[14311]=1,[19574]=1,[34490]=1,[19263]=1,[53271]=1,[49012]=1,
-        [3045]=1,   -- Rapid Fire
-        [34600]=1,  -- Snake Trap
+        [3045]=1,
+        [34600]=1,
     },
 }
 do
@@ -382,9 +349,6 @@ do
 end
 convertspellids = nil
 
--------------------------------------------------------------------------------
---  GetEffectiveCooldown
--------------------------------------------------------------------------------
 local function GetEffectiveCooldown(class, abilityName, baseCooldown)
     if db and db.customCooldowns and db.customCooldowns[class] then
         local custom = db.customCooldowns[class][abilityName]
@@ -393,18 +357,12 @@ local function GetEffectiveCooldown(class, abilityName, baseCooldown)
     return baseCooldown
 end
 
--------------------------------------------------------------------------------
---  ★  Expose shared data for PAB_Options.lua  ★
--------------------------------------------------------------------------------
 PAB.cooldownVariants     = cooldownVariants
 PAB.defaultAbilities     = defaultAbilities
 PAB.itemForSpell         = itemForSpell
 PAB.allCooldownIds       = allCooldownIds
 PAB.GetEffectiveCooldown = GetEffectiveCooldown
 
--------------------------------------------------------------------------------
---  Position saving / loading
--------------------------------------------------------------------------------
 function PAB:SavePositions()
     for k, anchor in ipairs(anchors) do
         local scale      = anchor:GetEffectiveScale()
@@ -427,15 +385,12 @@ function PAB:LoadPositions()
         elseif not db.movable then
             anchor:SetPoint("TOPLEFT", "PartyMemberFrame"..k, "TOPLEFT", db.xanchor or -88, db.yanchor or 17)
         else
-            -- No saved position yet, default to stacked center
+
             anchor:SetPoint("CENTER", UIParent, "CENTER", 0, 50 - (k * 100))
         end
     end
 end
 
--------------------------------------------------------------------------------
---  Anchors
--------------------------------------------------------------------------------
 local backdrop = { bgFile="Interface\\Tooltips\\UI-Tooltip-Background", edgeFile="", tile=false }
 
 function PAB:CreateAnchors()
@@ -444,7 +399,7 @@ function PAB:CreateAnchors()
         anchor:SetBackdrop(backdrop); anchor:SetHeight(15); anchor:SetWidth(15)
         anchor:SetBackdropColor(0, 0.82, 1, 0.8)
         anchor:EnableMouse(true); anchor:SetMovable(true)
-        anchor:SetClampedToScreen(true)  -- prevent dragging off-screen
+        anchor:SetClampedToScreen(true)
         anchor:Show()
         anchor.icons = {}
         anchor.HideIcons = function()
@@ -458,24 +413,18 @@ function PAB:CreateAnchors()
     end
 end
 
--------------------------------------------------------------------------------
---  Icons
--------------------------------------------------------------------------------
 local function CreateIcon(anchor)
     local icon = CreateFrame("Frame", anchor:GetName().."Icon".. (#anchor.icons+1), PABIcons)
     icon:SetHeight(30); icon:SetWidth(30)
 
-    -- Spell texture (full icon area)
     local texture = icon:CreateTexture(nil,"ARTWORK")
     texture:SetAllPoints(); texture:SetTexCoord(0.07,0.9,0.07,0.90)
     icon.texture = texture
 
-    -- Cooldown spiral
     local cd = CreateFrame("Cooldown", icon:GetName().."Cooldown", icon, "CooldownFrameTemplate")
     cd:SetAllPoints()
     icon.cd = cd
 
-    -- Border: 4 thin edge lines (1px each)
     local BW = 1
     local edges = {}
     for _, info in ipairs({
@@ -568,9 +517,6 @@ function PAB:FormatAbility(s)
     return s
 end
 
--------------------------------------------------------------------------------
---  Show / Hide helpers
--------------------------------------------------------------------------------
 function PAB:ShowUsedAnchors()   for i=1,GetNumPartyMembers() do anchors[i]:Show() end end
 function PAB:HideUnusedAnchors() for k=GetNumPartyMembers()+1,#anchors do anchors[k]:Hide(); anchors[k].HideIcons() end end
 function PAB:HideUnusedIcons(n, icons) for j=n,#icons do icons[j]:Hide(); icons[j].shouldShow=nil end end
@@ -582,18 +528,15 @@ local function array_contains(tab, val)
     return false
 end
 
--------------------------------------------------------------------------------
---  UpdateAnchors
--------------------------------------------------------------------------------
 function PAB:UpdateAnchors(updateIcons)
     if updateIcons then
-        -- Wipe global iconlist to prevent frame leak
+
         wipe(iconlist)
     end
     for idx=1,GetNumPartyMembers() do
         local uName = "party"..idx
         local _, class = UnitClass(uName)
-        if class then  -- skip instead of return if class is nil
+        if class then
             local anchor = anchors[idx]
             anchor.GUID = UnitGUID(uName); anchor.class = class; anchor.race = select(2,UnitRace(uName))
             if updateIcons then
@@ -630,7 +573,7 @@ function PAB:UpdateAnchors(updateIcons)
             self:HideUnusedIcons(num, anchor.icons)
         end
     end
-    -- Rebuild iconlist from all active anchors (prevents stale references)
+
     if updateIcons then
         for _, anch in ipairs(anchors) do
             for _, ic in ipairs(anch.icons) do
@@ -665,9 +608,6 @@ function PAB:ApplyAnchorSettings()
     if db.lock or not db.movable then PABAnchor:Hide() else PABAnchor:Show() end
 end
 
--------------------------------------------------------------------------------
---  Events
--------------------------------------------------------------------------------
 function PAB:UPDATE_BATTLEFIELD_STATUS(idx)
     if idx ~= 1 then return end
     if GetBattlefieldStatus(idx) == "active" then self:UpdateAnchors(false); self:ResetAnchorsSpecAndItems() end
@@ -707,7 +647,6 @@ function PAB:CheckAbility(anchor, ability, cooldown)
     end
 end
 
--- Spec swap spell names (cached once, locale-safe)
 local specSwapSpells = {}
 do
     local n1 = GetSpellInfo(63645); local n2 = GetSpellInfo(63644)
@@ -751,9 +690,6 @@ function PAB:StopAllIcons()
     for _, v in ipairs(iconlist) do v.Stop() end; wipe(activeGUIDS)
 end
 
--------------------------------------------------------------------------------
---  Timer / OnUpdate
--------------------------------------------------------------------------------
 local timers, timerfuncs, timerargs = {}, {}, {}
 function PAB:Schedule(dur, func, ...)
     timers[#timers+1]=dur; timerfuncs[#timerfuncs+1]=func; timerargs[#timerargs+1]={...}
@@ -786,9 +722,6 @@ local function PAB_OnUpdate(self, elapsed)
     PAB:QuerySpecInfo(elapsed)
 end
 
--------------------------------------------------------------------------------
---  Inspect system
--------------------------------------------------------------------------------
 PAB.inspectData = { frame=nil, current=nil, throttle=0, lastQuery=nil }
 
 function PAB:QuerySpecInfo(elapsed)
@@ -811,7 +744,7 @@ function PAB:QuerySpecInfo(elapsed)
             if not id.current then return end
             local anchor = anchors[id.current]
             if not anchor or not anchor.class then id.current = nil; return end
-            -- Spec talents
+
             local specSpells = specAbilities[anchor.class]
             if specSpells then
                 anchor.spec = {}
@@ -822,7 +755,7 @@ function PAB:QuerySpecInfo(elapsed)
                 end
                 if not found then anchor.spec = nil end
             end
-            -- Auto-detect CD reductions
+
             if anchor.class and db.autoCooldowns then
                 local _, cls = UnitClass("party"..id.current)
                 if cls then
@@ -853,7 +786,7 @@ function PAB:QuerySpecInfo(elapsed)
                     end
                 end
             end
-            -- Items
+
             anchor.items = {}
             for slot=13,14 do
                 local link = GetInventoryItemLink("party"..id.current, slot)
@@ -873,9 +806,6 @@ function PAB:QuerySpecInfo(elapsed)
     end
 end
 
--------------------------------------------------------------------------------
---  Initialization
--------------------------------------------------------------------------------
 local function PAB_OnLoad(self)
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
     self:RegisterEvent("PARTY_MEMBERS_CHANGED")
@@ -909,7 +839,7 @@ local function PAB_OnLoad(self)
     PABDB.classSelected   = PABDB.classSelected or "WARRIOR"
 
     db     = PABDB
-    PAB.db = db  -- ★ expose for PAB_Options.lua ★
+    PAB.db = db
 
     self:CreateAnchors()
     self:UpdateAnchors(false)
