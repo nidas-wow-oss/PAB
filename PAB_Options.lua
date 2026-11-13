@@ -24,7 +24,7 @@ local titleBorder = { 0.28, 0.52, 0.92, 0.95 }
 local ROW_A = { 0.02, 0.05, 0.14, 0.45 }
 local ROW_B = { 0.01, 0.04, 0.10, 0.45 }
 
-local PANEL_W, PANEL_H = 620, 560
+local PANEL_W, PANEL_H = 610, 530
 local ROW_H = 28
 
 local bdPanel = {
@@ -54,7 +54,7 @@ end
 local function Header(parent, x, y, text)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    fs:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
+    fs:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
     fs:SetText(HDR .. text .. R)
     return fs
 end
@@ -88,7 +88,7 @@ local function Checkbox(parent, x, y, label, fn)
     cb:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     local fs = _G[name .. "Text"]
     if fs then
-        fs:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+        fs:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
         fs:SetText(WHITE .. label .. R)
     end
     cb:SetScript("OnClick", function(self) fn(self) end)
@@ -117,17 +117,17 @@ local function Slider(parent, x, y, label, initVal, minV, maxV, step, w, fn)
 
     local low = _G[name .. "Low"]; low:ClearAllPoints()
     low:SetPoint("TOPLEFT", sl, "BOTTOMLEFT", 2, -1)
-    low:SetFont(low:GetFont(), 9)
+    low:SetFont(low:GetFont(), 10)
     low:SetText(GRAY .. tostring(minV) .. R)
 
     local high = _G[name .. "High"]; high:ClearAllPoints()
     high:SetPoint("TOPRIGHT", sl, "BOTTOMRIGHT", -2, -1)
-    high:SetFont(high:GetFont(), 9)
+    high:SetFont(high:GetFont(), 10)
     high:SetText(GRAY .. tostring(maxV) .. R)
 
     local val = sl:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     val:SetPoint("TOP", sl, "BOTTOM", 0, -1)
-    val:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    val:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
     sl.valText = val
 
     SetSliderLabel(sl, label, initVal)
@@ -157,6 +157,7 @@ local function Btn(parent, text, x, y, w, h, onClick)
     end
     ApplyBtnStyle(btn)
     local t = btn:CreateFontString(nil, "ARTWORK", small and "GameFontNormalSmall" or "GameFontNormal")
+    t:SetFont("Fonts\\FRIZQT__.TTF", small and 10 or 12, "")
     t:SetPoint("CENTER"); t:SetText(GOLD .. text .. R)
     btn:SetScript("OnEnter", function(s) s:SetBackdropColor(0.10, 0.15, 0.30, 0.90); t:SetText(WHITE .. text .. R) end)
     btn:SetScript("OnLeave", function(s) ApplyBtnStyle(s); t:SetText(GOLD .. text .. R) end)
@@ -185,8 +186,10 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
     local dd = CreateFrame("Frame", nil, parent); dd:SetSize(w, 24)
     dd:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y); ApplyTitle(dd)
     local lbl = dd:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    lbl:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
     lbl:SetPoint("BOTTOM", dd, "TOP", 0, 3); lbl:SetText(HDR .. label .. R)
     local sel = dd:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    sel:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
     sel:SetPoint("LEFT", 10, 0); sel:SetPoint("RIGHT", -20, 0); sel:SetJustifyH("LEFT")
 
     local arrowBtn = CreateFrame("Button", nil, dd)
@@ -250,6 +253,18 @@ local optionsFrame
 
 local function ToggleOptions()
     if not optionsFrame then PAB:CreateOptionsUI() end
+
+    if PAB.optionsDocked and PAB.ioPanel then
+        if InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown() then
+            HideUIPanel(InterfaceOptionsFrame)
+        elseif InterfaceOptionsFrame_OpenToCategory then
+
+            InterfaceOptionsFrame_OpenToCategory(PAB.ioPanel)
+            InterfaceOptionsFrame_OpenToCategory(PAB.ioPanel)
+        end
+        return
+    end
+
     if optionsFrame:IsShown() then optionsFrame:Hide()
     else optionsFrame:Show(); PAB:RefreshAbilityList() end
 end
@@ -265,7 +280,15 @@ function PAB:CreateOptionsUI()
     ApplyPanel(f); f:Hide()
     optionsFrame = f
 
-    f:SetScript("OnMouseDown", function(s, btn) if btn == "LeftButton" then CloseActivePopup(); s:StartMoving() end end)
+    if PAB.InstallDockGuard then PAB:InstallDockGuard() end
+
+    f:SetScript("OnMouseDown", function(s, btn)
+        if btn ~= "LeftButton" then return end
+        CloseActivePopup()
+
+        if PAB.optionsDocked then return end
+        s:StartMoving()
+    end)
     f:SetScript("OnMouseUp",   function(s) s:StopMovingOrSizing() end)
     f:SetScript("OnHide", function() CloseActivePopup() end)
 
@@ -276,6 +299,8 @@ function PAB:CreateOptionsUI()
     tBar:SetFrameLevel(f:GetFrameLevel() + 2)
     ApplyTitle(tBar)
 
+    f.pabTitleBar = tBar
+
     local title = tBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("CENTER", 0, 1)
     title:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE")
@@ -285,6 +310,7 @@ function PAB:CreateOptionsUI()
     closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
     closeBtn:SetFrameLevel(f:GetFrameLevel() + 5)
     closeBtn:SetScript("OnClick", function() f:Hide() end)
+    f.pabCloseBtn = closeBtn
 
     local cr = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     cr:SetPoint("BOTTOMRIGHT", -12, 8)
@@ -292,21 +318,22 @@ function PAB:CreateOptionsUI()
 
     local gsH = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     gsH:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -16)
-    gsH:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
+    gsH:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
     gsH:SetText(HDR .. "General Settings" .. R)
 
     local gsD = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    gsD:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -30)
+    gsD:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    gsD:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -31)
     gsD:SetText(WHITE .. "Basic options and frame positioning." .. R)
 
-    local scaleS = Slider(f, 16, -62, "Scale", format("%.2f", db.scale), 0.5, 2.0, 0.01, 170,
+    local scaleS = Slider(f, 16, -58, "Scale", format("%.2f", db.scale), 0.5, 2.0, 0.01, 170,
         function(self, v)
             db.scale = v; SetSliderLabel(self, "Scale", format("%.2f", v))
             PAB:ApplyAnchorSettings()
         end)
     scaleS:SetValue(db.scale)
 
-    local iplS = Slider(f, 16, -116, "Icons per line", tostring(db.iconsperline), 0, 10, 1, 170,
+    local iplS = Slider(f, 16, -108, "Icons per line", tostring(db.iconsperline), 0, 10, 1, 170,
         function(self, v)
             v = floor(v + 0.5); db.iconsperline = v
             SetSliderLabel(self, "Icons per line", tostring(v))
@@ -314,7 +341,7 @@ function PAB:CreateOptionsUI()
         end)
     iplS:SetValue(db.iconsperline)
 
-    local spacS = Slider(f, 16, -170, "Icon Spacing", tostring(db.iconSpacing or 1), 0, 10, 1, 170,
+    local spacS = Slider(f, 16, -158, "Icon Spacing", tostring(db.iconSpacing or 1), 0, 10, 1, 170,
         function(self, v)
             v = floor(v + 0.5); db.iconSpacing = v
             SetSliderLabel(self, "Icon Spacing", tostring(v))
@@ -322,46 +349,47 @@ function PAB:CreateOptionsUI()
         end)
     spacS:SetValue(db.iconSpacing or 1)
 
-    local rx = 310
+    local rx = 200
 
-    local c1 = Checkbox(f, rx, -50, "Arena Only", function(s)
+    local c1 = Checkbox(f, rx, -40, "Arena Only", function(s)
         db.arena = s:GetChecked() and true or false; PAB:ApplyAnchorSettings() end)
     c1:SetChecked(db.arena)
 
-    local c2 = Checkbox(f, rx, -76, "Hidden Until Cooldown", function(s)
+    local c2 = Checkbox(f, rx, -64, "Hidden Until Cooldown", function(s)
         db.hidden = s:GetChecked() and true or false; PAB:ApplyAnchorSettings() end)
     c2:SetChecked(db.hidden)
 
-    local c3 = Checkbox(f, rx, -102, "Movable Anchors", function(s)
+    local c3 = Checkbox(f, rx, -88, "Movable Anchors", function(s)
         db.movable = s:GetChecked() and true or false; PAB:ApplyAnchorSettings(); PAB:LoadPositions() end)
     c3:SetChecked(db.movable)
 
-    local c4 = Checkbox(f, rx, -128, "Lock Anchors", function(s)
+    local c4 = Checkbox(f, rx, -112, "Lock Anchors", function(s)
         db.lock = s:GetChecked() and true or false; PAB:ApplyAnchorSettings() end)
     c4:SetChecked(db.lock)
 
-    local c5 = Checkbox(f, rx, -154, "Auto-Detect CD Reductions", function(s)
+    local c5 = Checkbox(f, rx, -136, "Auto-Detect CD Reductions", function(s)
         db.autoCooldowns = s:GetChecked() and true or false end)
     c5:SetChecked(db.autoCooldowns)
     AddTooltip(c5, "Auto-Detect CD Reductions",
         "Inspects party members to detect talents and glyphs that shorten their cooldowns.")
 
-    local c6 = Checkbox(f, rx, -180, "Icon Border", function(s)
+    local c6 = Checkbox(f, rx, -160, "Icon Border", function(s)
         db.iconBorder = s:GetChecked() and true or false; PAB:UpdateAnchors(true) end)
     c6:SetChecked(db.iconBorder)
 
     local growItems = { "RIGHT","Right", "LEFT","Left" }
-    DropDown(f, "Grow Direction", rx, -218, 140, growItems,
+    DropDown(f, "Grow Direction", rx, -202, 140, growItems,
         function() return db.growDirection or "RIGHT" end,
         function(v) db.growDirection = v; PAB:UpdateAnchors(true) end)
 
-    local aeY = -256
+    local aeY = -248
     Separator(f, aeY + 12)
     Header(f, 16, aeY, "Ability Editor")
 
     local aeD = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     aeD:SetPoint("TOPLEFT", f, "TOPLEFT", 150, aeY)
-    aeD:SetWidth(160); aeD:SetJustifyH("RIGHT")
+    aeD:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    aeD:SetWidth(180); aeD:SetJustifyH("RIGHT")
     self.abilityCounterFS = aeD
 
     local classItems = {
@@ -375,24 +403,26 @@ function PAB:CreateOptionsUI()
     }
     db.classSelected = db.classSelected or "WARRIOR"
 
-    DropDown(f, "Class", rx, aeY - 14, 160, classItems,
-        function() return db.classSelected end,
-        function(v) db.classSelected = v; PAB:RefreshAbilityList() end)
+    local rxb = 338
 
-    Btn(f, "All", rx + 170, aeY - 14, 50, 24, function()
+    Btn(f, "All", rxb, aeY - 14, 50, 24, function()
         local cls = db.classSelected
         if not db.enabledCooldowns[cls] then db.enabledCooldowns[cls] = {} end
         for ab in pairs(db.abilities[cls] or {}) do db.enabledCooldowns[cls][ab] = true end
         PAB:RefreshAbilityList(); PAB:UpdateAnchors(true)
     end)
-    Btn(f, "None", rx + 225, aeY - 14, 50, 24, function()
+    Btn(f, "None", rxb + 55, aeY - 14, 50, 24, function()
         local cls = db.classSelected
         if not db.enabledCooldowns[cls] then db.enabledCooldowns[cls] = {} end
         for ab in pairs(db.abilities[cls] or {}) do db.enabledCooldowns[cls][ab] = false end
         PAB:RefreshAbilityList(); PAB:UpdateAnchors(true)
     end)
 
-    Btn(f, "Reset Positions", rx, aeY - 52, 140, 24, function()
+    DropDown(f, "Class", rxb, aeY - 60, 160, classItems,
+        function() return db.classSelected end,
+        function(v) db.classSelected = v; PAB:RefreshAbilityList() end)
+
+    Btn(f, "Reset Positions", rxb, aeY - 98, 140, 24, function()
         db.positions = {}
         PAB:LoadPositions()
         PAB:UpdateAnchors(true)
@@ -400,18 +430,19 @@ function PAB:CreateOptionsUI()
     end)
 
     local cdH = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    cdH:SetPoint("TOPLEFT", f, "TOPLEFT", rx, aeY - 84); cdH:SetWidth(270); cdH:SetJustifyH("LEFT")
+    cdH:SetPoint("TOPLEFT", f, "TOPLEFT", rxb, aeY - 130); cdH:SetWidth(250); cdH:SetJustifyH("LEFT")
+    cdH:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     cdH:SetText(GRAY .. "CD field = editable for talent/glyph spells.\nType a custom cooldown and press Enter." .. R)
 
     local listTop = aeY - 16
     local listBg = CreateFrame("Frame", nil, f)
     listBg:SetPoint("TOPLEFT", f, "TOPLEFT", 10, listTop)
-    listBg:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 30)
-    listBg:SetWidth(300)
+    listBg:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 24)
+    listBg:SetWidth(320)
     ApplyPanel(listBg)
     listBg:SetBackdropColor(panelBg[1] * 0.7, panelBg[2] * 0.7, panelBg[3] * 0.7, 0.70)
 
-    local maxVis = 8
+    local maxVis = 14
 
     local scrollFrame = CreateFrame("ScrollFrame", "PABScrollFrame", listBg, "FauxScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", 4, -4); scrollFrame:SetPoint("BOTTOMRIGHT", -24, 4)
@@ -423,9 +454,12 @@ function PAB:CreateOptionsUI()
         end)
     end)
 
+    self.listBg = listBg
+
     local listInner = CreateFrame("Frame", nil, listBg)
     listInner:SetPoint("TOPLEFT", 4, -4); listInner:SetPoint("TOPRIGHT", -24, -4)
     listInner:SetHeight(maxVis * ROW_H)
+    self.listInner = listInner
 
     self.abilityRows = {}
 
@@ -458,10 +492,12 @@ function PAB:CreateOptionsUI()
         row.icon = icon
 
         local nm = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        nm:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
         nm:SetPoint("LEFT", icon, "RIGHT", 5, 0); nm:SetWidth(140); nm:SetJustifyH("LEFT")
         row.name = nm
 
         local cdTxt = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        cdTxt:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
         cdTxt:SetPoint("LEFT", nm, "RIGHT", 2, 0); cdTxt:SetWidth(36); cdTxt:SetJustifyH("RIGHT")
         row.cdTxt = cdTxt
 
@@ -501,6 +537,102 @@ do
     end
 end
 
+local relayout = CreateFrame("Frame")
+relayout:Hide()
+relayout:SetScript("OnUpdate", function(self)
+    self:Hide()
+    PAB:LayoutDockedOptions()
+end)
+
+function PAB:LayoutDockedOptions()
+    if not self.optionsDocked or not optionsFrame then return end
+    local f = optionsFrame
+
+    local box = f:GetParent()
+    if not box then return end
+
+    local pw, ph = box:GetWidth(), box:GetHeight()
+    if not pw or not ph or pw <= 0 or ph <= 0 then return end
+
+    f:SetScale(1)
+    f:ClearAllPoints()
+    f:SetAllPoints(box)
+
+    self:RefreshAbilityList()
+end
+
+function PAB:DockOptions(host)
+    if not optionsFrame then self:CreateOptionsUI() end
+    if self.optionsDocked then return end
+    local f = optionsFrame
+    self.optionsDocked = true
+
+    f:SetBackdrop(nil)
+    if f.pabTitleBar then f.pabTitleBar:Hide() end
+    if f.pabCloseBtn then f.pabCloseBtn:Hide() end
+    f:SetMovable(false)
+
+    f:SetParent(host)
+    f:SetFrameStrata(host:GetFrameStrata())
+    f:SetFrameLevel(host:GetFrameLevel() + 1)
+
+    self:LayoutDockedOptions()
+    relayout:Show()
+
+    f:Show()
+    self:RefreshAbilityList()
+end
+
+function PAB:RestoreWindowChrome()
+    if not optionsFrame then return end
+    local f = optionsFrame
+    self.optionsDocked = false
+    relayout:Hide()
+
+    ApplyPanel(f)
+    if f.pabTitleBar then f.pabTitleBar:Show() end
+    if f.pabCloseBtn then f.pabCloseBtn:Show() end
+    f:SetMovable(true)
+    f:SetScale(1)
+
+    f:SetParent(UIParent)
+    f:ClearAllPoints()
+
+    f:SetSize(PANEL_W, PANEL_H)
+    f:SetPoint("CENTER")
+    f:SetFrameStrata("DIALOG")
+end
+
+function PAB:UndockOptions()
+    if not optionsFrame or not self.optionsDocked then return end
+    self:RestoreWindowChrome()
+    optionsFrame:Hide()
+end
+
+function PAB:InstallDockGuard()
+    local f = optionsFrame
+    if not f or f.pabDockGuard then return end
+    f.pabDockGuard = true
+
+    local settle = CreateFrame("Frame")
+    settle:Hide()
+    settle:SetScript("OnUpdate", function(self)
+        self:Hide()
+        if not PAB.optionsDocked then return end
+        local iof = _G.InterfaceOptionsFrame
+        if iof and iof:IsShown() then return end
+
+        PAB:UndockOptions()
+    end)
+
+    f:HookScript("OnShow", function(self)
+        if not PAB.optionsDocked then return end
+        local iof = _G.InterfaceOptionsFrame
+        if iof and iof:IsShown() then return end
+        settle:Show()
+    end)
+end
+
 function PAB:UpdateAbilityCounter()
     local fs = self.abilityCounterFS; if not fs then return end
     local db = self.db; if not db then return end
@@ -531,7 +663,19 @@ function PAB:RefreshAbilityList()
 
     self:UpdateAbilityCounter()
 
-    local total = #sorted; local maxVis = #rows
+    local rowsFit = #rows
+    local lb = self.listBg
+    if lb then
+        local h = lb:GetHeight()
+        if h and h > 0 then
+            rowsFit = math.floor((h - 8) / ROW_H)
+            if rowsFit < 3      then rowsFit = 3      end
+            if rowsFit > #rows  then rowsFit = #rows  end
+        end
+    end
+    if self.listInner then self.listInner:SetHeight(rowsFit * ROW_H) end
+
+    local total = #sorted; local maxVis = rowsFit
     if self.scrollFrame then FauxScrollFrame_Update(self.scrollFrame, total, maxVis, ROW_H) end
     local off = self.scrollFrame and FauxScrollFrame_GetOffset(self.scrollFrame) or 0
 
@@ -541,7 +685,8 @@ function PAB:RefreshAbilityList()
 
     for i, row in ipairs(rows) do
         local di = i + off
-        if di <= total then
+
+        if i <= maxVis and di <= total then
             local e = sorted[di]; local abName = e.name; local baseCd = e.cd
             row.icon:SetTexture(PAB:FindAbilityIcon(abName))
             row.name:SetText(WHITE .. (self.itemForSpell[abName] or abName) .. R)
@@ -606,20 +751,23 @@ end
 
 local ioPanel = CreateFrame("Frame", "PABInterfacePanel", UIParent)
 ioPanel.name = "Party Ability Bars"
-local ioTitle = ioPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-ioTitle:SetPoint("TOPLEFT", 16, -16)
-ioTitle:SetText("|cffFFD700Party Ability Bars|r  v2.0")
-local ioDesc = ioPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-ioDesc:SetPoint("TOPLEFT", ioTitle, "BOTTOMLEFT", 0, -12)
-ioDesc:SetText("Type  |cff4fc3f7/pab|r  to open the options panel.\nType  |cff4fc3f7/pab reset|r  to reset all settings.")
-local ioBtn = CreateFrame("Button", nil, ioPanel, "UIPanelButtonTemplate")
-ioBtn:SetSize(180, 26); ioBtn:SetPoint("TOPLEFT", ioDesc, "BOTTOMLEFT", 0, -16)
-ioBtn:SetText("Open PAB Options")
-ioBtn:SetScript("OnClick", function()
-    HideUIPanel(InterfaceOptionsFrame)
-    if GameMenuFrame and GameMenuFrame:IsShown() then HideUIPanel(GameMenuFrame) end
-    if not optionsFrame then PAB:CreateOptionsUI() end
-    optionsFrame:Show()
-    PAB:RefreshAbilityList()
-end)
+
+PAB.ioPanel = ioPanel
+
+local ioHost = CreateFrame("Frame", nil, ioPanel)
+do
+    local box = _G.InterfaceOptionsFramePanelContainer or ioPanel
+    ioHost:SetPoint("TOPLEFT",     box, "TOPLEFT",      6, -6)
+    ioHost:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -6,  6)
+end
+
+ioPanel:SetScript("OnShow", function() PAB:DockOptions(ioHost) end)
+ioPanel:SetScript("OnHide", function() PAB:UndockOptions() end)
+
 InterfaceOptions_AddCategory(ioPanel)
+
+if _G.InterfaceOptionsFrame then
+    _G.InterfaceOptionsFrame:HookScript("OnHide", function()
+        if PAB.optionsDocked then PAB:UndockOptions() end
+    end)
+end
