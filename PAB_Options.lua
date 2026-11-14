@@ -221,7 +221,8 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
     local function ShowPopup()
         CloseActivePopup()
 
-        for _, k in ipairs({popup:GetChildren()}) do k:Hide(); k:SetParent(nil) end
+        if not popup.built then
+        popup.built = true
         popup:SetHeight(#items / 2 * 20 + 6); local yy = -3
         for i = 1, #items, 2 do
             local key, disp = items[i], items[i+1] or items[i]
@@ -235,6 +236,7 @@ local function DropDown(parent, label, x, y, w, items, getter, setter)
                 if setter then setter(key) end; Refresh()
                 popup:Hide(); overlay:Hide(); activePopup = nil
             end)
+        end
         end
         popup:ClearAllPoints(); popup:SetPoint("TOP", dd, "BOTTOM", 0, -2)
         popup:Show(); overlay:Show(); activePopup = popup
@@ -516,6 +518,34 @@ function PAB:CreateOptionsUI()
         eBrd:SetBackdropColor(0, 0, 0, 0)
         eBrd:SetBackdropBorderColor(titleBorder[1], titleBorder[2], titleBorder[3], 0.5)
         row.editbox = eb
+        row.zebra = (i % 2 == 0) and ROW_B or ROW_A
+
+        eb:SetScript("OnEnterPressed", function(s)
+            s:ClearFocus(); local val = tonumber(s:GetText())
+            local cls, abName = row.cls, row.abName
+            if not cls then return end
+            if not db.customCooldowns[cls] then db.customCooldowns[cls] = {} end
+            if not db.manualOverrides[cls] then db.manualOverrides[cls] = {} end
+            if val and val > 0 then
+                db.customCooldowns[cls][abName] = val
+                db.manualOverrides[cls][abName] = true
+            else
+                db.customCooldowns[cls][abName] = nil
+                db.manualOverrides[cls][abName] = nil; s:SetText("")
+            end
+            PAB:UpdateAnchors(false); PAB:RefreshAbilityList()
+        end)
+        eb:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
+
+        cb:SetScript("OnClick", function(s)
+            local cls, abName = row.cls, row.abName
+            if not cls then return end
+            local on = s:GetChecked() and true or false
+            db.enabledCooldowns[cls][abName] = on
+            PAB:TintRow(row, on)
+            PAB:UpdateAbilityCounter()
+            PAB:UpdateAnchors(false)
+        end)
 
         row:Hide(); self.abilityRows[i] = row
     end
@@ -525,6 +555,7 @@ function PAB:CreateOptionsUI()
 end
 
 local variantByName = {}
+local sortedCache = {}
 do
     local defs = PAB.defaultAbilities
     for spID, vdata in pairs(PAB.cooldownVariants) do
@@ -657,9 +688,13 @@ function PAB:RefreshAbilityList()
     local cls = db.classSelected
     local abilities = db.abilities[cls]; if not abilities then return end
 
-    local sorted = {}
-    for ab, cd in pairs(abilities) do sorted[#sorted + 1] = { name = ab, cd = cd } end
-    table.sort(sorted, function(a, b) return a.name < b.name end)
+    local sorted = sortedCache[cls]
+    if not sorted then
+        sorted = {}
+        for ab in pairs(abilities) do sorted[#sorted + 1] = ab end
+        table.sort(sorted)
+        sortedCache[cls] = sorted
+    end
 
     self:UpdateAbilityCounter()
 
@@ -687,7 +722,8 @@ function PAB:RefreshAbilityList()
         local di = i + off
 
         if i <= maxVis and di <= total then
-            local e = sorted[di]; local abName = e.name; local baseCd = e.cd
+            local abName = sorted[di]; local baseCd = abilities[abName]
+            row.cls = cls; row.abName = abName
             row.icon:SetTexture(PAB:FindAbilityIcon(abName))
             row.name:SetText(WHITE .. (self.itemForSpell[abName] or abName) .. R)
             local variant = variantByName[cls .. ":" .. abName]
@@ -697,21 +733,6 @@ function PAB:RefreshAbilityList()
                 row.editbox:Show()
                 local custom = db.customCooldowns[cls] and db.customCooldowns[cls][abName]
                 row.editbox:SetText(custom and custom > 0 and tostring(custom) or "")
-                row.editbox.cls = cls; row.editbox.abName = abName
-                row.editbox:SetScript("OnEnterPressed", function(s)
-                    s:ClearFocus(); local val = tonumber(s:GetText())
-                    if not db.customCooldowns[s.cls] then db.customCooldowns[s.cls] = {} end
-                    if not db.manualOverrides[s.cls] then db.manualOverrides[s.cls] = {} end
-                    if val and val > 0 then
-                        db.customCooldowns[s.cls][s.abName] = val
-                        db.manualOverrides[s.cls][s.abName] = true
-                    else
-                        db.customCooldowns[s.cls][s.abName] = nil
-                        db.manualOverrides[s.cls][s.abName] = nil; s:SetText("")
-                    end
-                    PAB:UpdateAnchors(true); PAB:RefreshAbilityList()
-                end)
-                row.editbox:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
             else
                 row.editbox:Hide(); row.editbox:SetText("")
             end
@@ -719,26 +740,19 @@ function PAB:RefreshAbilityList()
             local checked = db.enabledCooldowns[cls][abName]
             if checked == nil then checked = false; db.enabledCooldowns[cls][abName] = false end
             row.cb:SetChecked(checked)
-
-            local function TintRow(on)
-                if not row.bg then return end
-                if on then
-                    row.bg:SetVertexColor(0.06, 0.16, 0.28, 0.55)
-                else
-                    row.bg:SetVertexColor(unpack(i % 2 == 0 and ROW_B or ROW_A))
-                end
-            end
-            TintRow(checked)
-
-            row.cb:SetScript("OnClick", function(s)
-                local on = s:GetChecked() and true or false
-                db.enabledCooldowns[cls][abName] = on
-                TintRow(on)
-                PAB:UpdateAbilityCounter()
-                PAB:UpdateAnchors(true)
-            end)
+            self:TintRow(row, checked)
             row:Show()
-        else row:Hide() end
+        else row.cls = nil; row.abName = nil; row:Hide() end
+    end
+end
+
+function PAB:TintRow(row, on)
+    if not row.bg then return end
+    if on then
+        row.bg:SetVertexColor(0.06, 0.16, 0.28, 0.55)
+    else
+        local z = row.zebra
+        row.bg:SetVertexColor(z[1], z[2], z[3], z[4])
     end
 end
 

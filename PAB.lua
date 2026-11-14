@@ -1,13 +1,8 @@
-local lower            = string.lower
-local match            = string.match
-local remove           = table.remove
-local format           = string.format
 local pairs, ipairs    = pairs, ipairs
 local tonumber         = tonumber
 local select           = select
 local type             = type
 local wipe             = wipe
-local unpack           = unpack
 local GetSpellInfo     = GetSpellInfo
 local UnitClass        = UnitClass
 local UnitGUID         = UnitGUID
@@ -413,6 +408,14 @@ function PAB:CreateAnchors()
     end
 end
 
+local BORDER_EDGES = {
+    {"TOP",    "TOPLEFT","TOPRIGHT",    nil,nil,  1,nil},
+    {"BOTTOM", "BOTTOMLEFT","BOTTOMRIGHT", nil,nil, 1,nil},
+    {"LEFT",   "TOPLEFT","BOTTOMLEFT",  nil,nil,  nil,1},
+    {"RIGHT",  "TOPRIGHT","BOTTOMRIGHT", nil,nil,  nil,1},
+}
+local EMPTY = {}
+
 local function CreateIcon(anchor)
     local icon = CreateFrame("Frame", anchor:GetName().."Icon".. (#anchor.icons+1), PABIcons)
     icon:SetHeight(30); icon:SetWidth(30)
@@ -425,14 +428,8 @@ local function CreateIcon(anchor)
     cd:SetAllPoints()
     icon.cd = cd
 
-    local BW = 1
     local edges = {}
-    for _, info in ipairs({
-        {"TOP",    "TOPLEFT","TOPRIGHT",    nil,nil,  BW,nil},
-        {"BOTTOM", "BOTTOMLEFT","BOTTOMRIGHT", nil,nil, BW,nil},
-        {"LEFT",   "TOPLEFT","BOTTOMLEFT",  nil,nil,  nil,BW},
-        {"RIGHT",  "TOPRIGHT","BOTTOMRIGHT", nil,nil,  nil,BW},
-    }) do
+    for _, info in ipairs(BORDER_EDGES) do
         local e = icon:CreateTexture(nil, "OVERLAY")
         e:SetTexture("Interface\\Buttons\\WHITE8X8")
         e:SetVertexColor(0, 0, 0, 0.9)
@@ -457,10 +454,13 @@ local function CreateIcon(anchor)
         CooldownFrame_SetTimer(cd, GetTime(), icon.cooldown, 1)
         icon:Show(); icon.active = true; icon.starttime = GetTime()+0.4
         texture:SetDesaturated(true)
-        activeGUIDS[icon.GUID] = activeGUIDS[icon.GUID] or {}
-        activeGUIDS[icon.GUID][icon.ability] = activeGUIDS[icon.GUID][icon.ability] or {}
-        activeGUIDS[icon.GUID][icon.ability].starttime = icon.starttime
-        activeGUIDS[icon.GUID][icon.ability].cooldown  = icon.cooldown
+        if not icon.GUID then return end
+        local g = activeGUIDS[icon.GUID]
+        if not g then g = {}; activeGUIDS[icon.GUID] = g end
+        local e = g[icon.ability]
+        if not e then e = {}; g[icon.ability] = e end
+        e.starttime = icon.starttime
+        e.cooldown  = icon.cooldown
     end
     icon.Stop = function()
         CooldownFrame_SetTimer(cd,0,0,0); icon.starttime = 0
@@ -474,20 +474,20 @@ local function CreateIcon(anchor)
     return icon
 end
 
-function PAB:AppendIcon(icons, anchor)
-    local ni = CreateIcon(anchor)
-    iconlist[#iconlist+1] = ni
+local function PositionIcon(icons, n, anchor)
+    local ni = icons[n]
     local spacing = db.iconSpacing or 1
     local grow = db.growDirection or "RIGHT"
-
-    if #icons == 0 then
+    local ipl = db.iconsperline or 0
+    ni:ClearAllPoints()
+    if n == 1 then
         if grow == "LEFT" then
             ni:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT")
         else
             ni:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT")
         end
-    elseif db.iconsperline ~= 0 and (#icons % db.iconsperline) == 0 then
-        local rowStart = icons[#icons - db.iconsperline + 1]
+    elseif ipl ~= 0 and ((n - 1) % ipl) == 0 then
+        local rowStart = icons[n - ipl]
         if grow == "LEFT" then
             ni:SetPoint("TOPRIGHT", rowStart, "BOTTOMRIGHT", 0, -spacing)
         else
@@ -495,13 +495,27 @@ function PAB:AppendIcon(icons, anchor)
         end
     else
         if grow == "LEFT" then
-            ni:SetPoint("TOPRIGHT", icons[#icons], "TOPLEFT", -spacing, 0)
+            ni:SetPoint("TOPRIGHT", icons[n-1], "TOPLEFT", -spacing, 0)
         else
-            ni:SetPoint("TOPLEFT", icons[#icons], "TOPRIGHT", spacing, 0)
+            ni:SetPoint("TOPLEFT", icons[n-1], "TOPRIGHT", spacing, 0)
         end
     end
+end
+
+function PAB:AppendIcon(icons, anchor)
+    local ni = CreateIcon(anchor)
+    iconlist[#iconlist+1] = ni
     icons[#icons+1] = ni
+    PositionIcon(icons, #icons, anchor)
     return ni
+end
+
+function PAB:LayoutIcons(anchor)
+    local icons = anchor.icons
+    for n = 1, #icons do
+        PositionIcon(icons, n, anchor)
+        icons[n].UpdateBorder()
+    end
 end
 
 function PAB:FindAbilityIcon(ability)
@@ -509,12 +523,6 @@ function PAB:FindAbilityIcon(ability)
     local _, _, icon = GetSpellInfo(ability)
     if icon then iconPaths[ability] = icon; return icon end
     return "Interface\\Icons\\INV_Misc_QuestionMark"
-end
-
-function PAB:FormatAbility(s)
-    s = s:gsub("(%a)(%a*)('*)(%a*)", function(a,b,c,d) return a:upper()..b:lower()..c..d:lower() end)
-    s = s:gsub("(The)", lower); s = s:gsub("(Of)", lower)
-    return s
 end
 
 function PAB:ShowUsedAnchors()   for i=1,GetNumPartyMembers() do anchors[i]:Show() end end
@@ -528,21 +536,19 @@ local function array_contains(tab, val)
     return false
 end
 
+local PARTY_UNITS = { "party1", "party2", "party3", "party4" }
+
 function PAB:UpdateAnchors(updateIcons)
     if updateIcons then
 
-        wipe(iconlist)
+        for i = 1, #anchors do self:LayoutIcons(anchors[i]) end
     end
     for idx=1,GetNumPartyMembers() do
-        local uName = "party"..idx
+        local uName = PARTY_UNITS[idx]
         local _, class = UnitClass(uName)
-        if class then
-            local anchor = anchors[idx]
+        local anchor = anchors[idx]
+        if class and anchor then
             anchor.GUID = UnitGUID(uName); anchor.class = class; anchor.race = select(2,UnitRace(uName))
-            if updateIcons then
-                for _, ic in ipairs(anchor.icons) do ic:Hide(); ic:SetParent(nil); ic:ClearAllPoints() end
-                anchor.icons = {}
-            end
             local num = 1
             if anchor.race and db.abilities[anchor.race] then
                 for ab, cd in pairs(db.abilities[anchor.race]) do
@@ -553,7 +559,7 @@ function PAB:UpdateAnchors(updateIcons)
                 end
             end
             if anchor.items then
-                for ab, cd in pairs(db.abilities["Items"] or {}) do
+                for ab, cd in pairs(db.abilities["Items"] or EMPTY) do
                     local iName = itemForSpell[ab]
                     local t = db.enabledCooldowns["Items"]
                     if t and t[ab] and array_contains(anchor.items, iName) then
@@ -561,8 +567,8 @@ function PAB:UpdateAnchors(updateIcons)
                     end
                 end
             end
-            local specSpells = specAbilities[class] or {}
-            for ab, cd in pairs(db.abilities[class] or {}) do
+            local specSpells = specAbilities[class] or EMPTY
+            for ab, cd in pairs(db.abilities[class] or EMPTY) do
                 local t = db.enabledCooldowns[class]
                 if t and t[ab] then
                     if not specSpells[ab] or (anchor.spec and anchor.spec[ab]) then
@@ -573,14 +579,6 @@ function PAB:UpdateAnchors(updateIcons)
             self:HideUnusedIcons(num, anchor.icons)
         end
     end
-
-    if updateIcons then
-        for _, anch in ipairs(anchors) do
-            for _, ic in ipairs(anch.icons) do
-                iconlist[#iconlist+1] = ic
-            end
-        end
-    end
     self:ShowUsedAnchors(); self:HideUnusedAnchors(); self:ApplyAnchorSettings()
 end
 
@@ -589,9 +587,11 @@ function PAB:UpdateAnchorIcon(anchor, numIcons, ability, cooldown)
     local icon = icons[numIcons] or self:AppendIcon(icons, anchor)
     icon.texture:SetTexture(self:FindAbilityIcon(ability))
     icon.GUID=anchor.GUID; icon.ability=ability; icon.cooldown=cooldown; icon.shouldShow=true
-    activeGUIDS[icon.GUID] = activeGUIDS[icon.GUID] or {}
-    if activeGUIDS[icon.GUID][icon.ability] then
-        icon.SetTimer(activeGUIDS[icon.GUID][ability].starttime, activeGUIDS[icon.GUID][ability].cooldown)
+
+    local saved = icon.GUID and activeGUIDS[icon.GUID]
+    saved = saved and saved[ability]
+    if saved then
+        icon.SetTimer(saved.starttime, saved.cooldown)
     else icon.Stop() end
 end
 
@@ -606,6 +606,7 @@ function PAB:ApplyAnchorSettings()
         end
     end
     if db.lock or not db.movable then PABAnchor:Hide() else PABAnchor:Show() end
+    self:UpdateActivity()
 end
 
 function PAB:UPDATE_BATTLEFIELD_STATUS(idx)
@@ -613,15 +614,20 @@ function PAB:UPDATE_BATTLEFIELD_STATUS(idx)
     if GetBattlefieldStatus(idx) == "active" then self:UpdateAnchors(false); self:ResetAnchorsSpecAndItems() end
 end
 
+function PAB:ResetInspect()
+    local id = self.inspectData
+    id.throttle = 0; id.current = nil; id.lastQuery = nil
+end
+
 function PAB:PARTY_MEMBERS_CHANGED()
     if not pGUID then pGUID = UnitGUID("player") end
     if not pName then pName = UnitName("player") end
-    self.inspectData = { throttle = 0 }
+    self:ResetInspect()
     self:UpdateAnchors(false); self:ResetAnchorsSpecAndItems()
 end
 
 function PAB:PLAYER_ENTERING_WORLD()
-    if InArena() then self:StopAllIcons(); self.inspectData = { throttle = 0 } end
+    if InArena() then self:StopAllIcons(); self:ResetInspect() end
     if not pGUID then pGUID = UnitGUID("player") end
     if not pName then pName = UnitName("player") end
     self:UpdateAnchors(false); self:ResetAnchorsSpecAndItems()
@@ -654,12 +660,15 @@ do
     if n2 then specSwapSpells[n2] = true end
 end
 
+local UNIT_INDEX = {
+    party1=1, party2=2, party3=3, party4=4,
+    partypet1=1, partypet2=2, partypet3=3, partypet4=4,
+}
+
 function PAB:UNIT_SPELLCAST_SUCCEEDED(unit, ability)
-    if unit == "player" then return end
-    local pIdx = match(unit, "party[pet]*([1-4])")
+    local pIdx = UNIT_INDEX[unit]
     if not pIdx then return end
-    pIdx = tonumber(pIdx)
-    local actualUnit = "party"..pIdx
+    local actualUnit = PARTY_UNITS[pIdx]
     if ability and specSwapSpells[ability] then
         if anchors[pIdx] then anchors[pIdx].spec = nil end; return
     end
@@ -681,24 +690,18 @@ function PAB:UNIT_SPELLCAST_SUCCEEDED(unit, ability)
 end
 
 function PAB:UNIT_INVENTORY_CHANGED(unit)
-    if unit == "player" then return end
-    local pIdx = match(unit, "party[pet]*([1-4])")
-    if pIdx then pIdx = tonumber(pIdx); if anchors[pIdx] then anchors[pIdx].items = nil end end
+    local pIdx = UNIT_INDEX[unit]
+    if pIdx and anchors[pIdx] then anchors[pIdx].items = nil end
 end
 
 function PAB:StopAllIcons()
     for _, v in ipairs(iconlist) do v.Stop() end; wipe(activeGUIDS)
 end
 
-local timers, timerfuncs, timerargs = {}, {}, {}
-function PAB:Schedule(dur, func, ...)
-    timers[#timers+1]=dur; timerfuncs[#timerfuncs+1]=func; timerargs[#timerargs+1]={...}
-end
-
 local elapsed_acc = 0
 local function PAB_OnUpdate(self, elapsed)
     elapsed_acc = elapsed_acc + elapsed
-    if elapsed_acc < 0.05 then return end
+    if elapsed_acc < 0.1 then return end
     for _, icon in ipairs(iconlist) do
         if icon.active then
             icon.timeleft = icon.starttime + icon.cooldown - GetTime()
@@ -710,16 +713,29 @@ local function PAB_OnUpdate(self, elapsed)
             end
         end
     end
-    for i = #timers,1,-1 do
-        timers[i] = timers[i] - elapsed_acc
-        if timers[i] <= 0 then
-            local fn, args = timerfuncs[i], timerargs[i]
-            remove(timers,i); remove(timerfuncs,i); remove(timerargs,i)
-            fn(PAB, unpack(args))
-        end
-    end
+
+    local acc = elapsed_acc
     elapsed_acc = 0
-    PAB:QuerySpecInfo(elapsed)
+    PAB:QuerySpecInfo(acc)
+end
+
+local running
+function PAB:UpdateActivity()
+    if not db then return end
+    local want = GetNumPartyMembers() > 0 and (not db.arena or InArena())
+    if want == running then return end
+    running = want
+    if want then
+        self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+        self:RegisterEvent("UNIT_INVENTORY_CHANGED")
+        elapsed_acc = 0
+        self:SetScript("OnUpdate", PAB_OnUpdate)
+    else
+        self:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+        self:UnregisterEvent("UNIT_INVENTORY_CHANGED")
+        self:SetScript("OnUpdate", nil)
+        self:ResetInspect()
+    end
 end
 
 PAB.inspectData = { frame=nil, current=nil, throttle=0, lastQuery=nil }
@@ -746,18 +762,18 @@ function PAB:QuerySpecInfo(elapsed)
             if not anchor or not anchor.class then id.current = nil; return end
 
             local specSpells = specAbilities[anchor.class]
+            local spec = {}
             if specSpells then
-                anchor.spec = {}
-                local found = false
+                local tg = GetActiveTalentGroup(true)
                 for ab, spell in pairs(specSpells) do
-                    local has = select(5, GetTalentInfo(spell.talentGroup, spell.index, true, false, GetActiveTalentGroup(true))) > 0
-                    found = found or has; anchor.spec[ab] = has
+                    local pts = select(5, GetTalentInfo(spell.talentGroup, spell.index, true, false, tg))
+                    spec[ab] = (pts or 0) > 0
                 end
-                if not found then anchor.spec = nil end
             end
+            anchor.spec = spec
 
             if anchor.class and db.autoCooldowns then
-                local _, cls = UnitClass("party"..id.current)
+                local _, cls = UnitClass(PARTY_UNITS[id.current])
                 if cls then
                     for spID, vdata in pairs(cooldownVariants) do
                         local spName = GetSpellInfo(spID)
@@ -789,10 +805,10 @@ function PAB:QuerySpecInfo(elapsed)
 
             anchor.items = {}
             for slot=13,14 do
-                local link = GetInventoryItemLink("party"..id.current, slot)
+                local link = GetInventoryItemLink(PARTY_UNITS[id.current], slot)
                 if link then anchor.items[slot] = GetItemInfo(link) end
             end
-            PAB:UpdateAnchors(true); ClearInspectPlayer(); id.current = nil
+            PAB:UpdateAnchors(false); ClearInspectPlayer(); id.current = nil
         end)
         id.frame:RegisterEvent("INSPECT_TALENT_READY")
     end
@@ -800,18 +816,23 @@ function PAB:QuerySpecInfo(elapsed)
     for i=1,GetNumPartyMembers() do
         local anchor = anchors[i]
         if not anchor then return end
-        if (not anchor.spec or not anchor.items) and CanInspect("party"..i) and UnitIsConnected("party"..i) then
-            id.current = i; id.lastQuery = 0; NotifyInspect("party"..i); break
+        if (not anchor.spec or not anchor.items) and CanInspect(PARTY_UNITS[i]) and UnitIsConnected(PARTY_UNITS[i]) then
+            id.current = i; id.lastQuery = 0; NotifyInspect(PARTY_UNITS[i]); break
         end
     end
 end
 
+function PAB:PLAYER_LOGOUT()
+    if PABDB then PABDB.abilities = nil end
+end
+
 local function PAB_OnLoad(self)
+    self:UnregisterEvent("VARIABLES_LOADED")
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
     self:RegisterEvent("PARTY_MEMBERS_CHANGED")
-    self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-    self:RegisterEvent("UNIT_INVENTORY_CHANGED")
     self:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
+    self:RegisterEvent("PLAYER_LOGOUT")
+
     self:SetScript("OnEvent", function(s, event, ...) if PAB[event] then PAB[event](PAB, ...) end end)
 
     PABDB = PABDB or {
@@ -832,9 +853,10 @@ local function PAB_OnLoad(self)
     PABDB.manualOverrides = PABDB.manualOverrides or {}
     PABDB.xanchor         = PABDB.xanchor or -88
     PABDB.yanchor         = PABDB.yanchor or 17
-    PABDB.autoCooldowns   = (PABDB.autoCooldowns ~= nil) and PABDB.autoCooldowns or true
+
+    if PABDB.autoCooldowns == nil then PABDB.autoCooldowns = true end
     PABDB.iconSpacing     = PABDB.iconSpacing or 1
-    PABDB.iconBorder      = (PABDB.iconBorder ~= nil) and PABDB.iconBorder or true
+    if PABDB.iconBorder == nil then PABDB.iconBorder = true end
     PABDB.growDirection   = PABDB.growDirection or "RIGHT"
     PABDB.classSelected   = PABDB.classSelected or "WARRIOR"
 
@@ -844,7 +866,6 @@ local function PAB_OnLoad(self)
     self:CreateAnchors()
     self:UpdateAnchors(false)
     self:LoadPositions()
-    self:SetScript("OnUpdate", PAB_OnUpdate)
 
     print("v2.0 loaded. Type |cff4fc3f7/pab|r to open settings.")
 end
