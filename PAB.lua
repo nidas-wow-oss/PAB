@@ -463,8 +463,17 @@ local function CreateIcon(anchor)
         e.cooldown  = icon.cooldown
     end
     icon.Stop = function()
+
+        cd:SetCooldown(0, 0)
         CooldownFrame_SetTimer(cd,0,0,0); icon.starttime = 0
         texture:SetDesaturated(false)
+
+        if icon.active then
+            icon.active = nil
+            local g = icon.GUID and activeGUIDS[icon.GUID]
+            if g and icon.ability then g[icon.ability] = nil end
+            if db.hidden then icon:Hide() end
+        end
     end
     icon.SetTimer = function(st, cd2)
         CooldownFrame_SetTimer(cd,st,cd2,1); icon.active=true; icon.starttime=st; icon.cooldown=cd2
@@ -626,11 +635,42 @@ function PAB:PARTY_MEMBERS_CHANGED()
     self:UpdateAnchors(false); self:ResetAnchorsSpecAndItems()
 end
 
+local wasInArena
+local function IsArenaNow()
+    if InArena() then return true end
+    if IsActiveBattlefieldArena and IsActiveBattlefieldArena() then return true end
+    return false
+end
+
+function PAB:CheckArenaEntry()
+    local inA = IsArenaNow()
+    if inA and not wasInArena then
+        self:StopAllIcons(); self:ResetInspect(); self:ResetAnchorsSpecAndItems()
+        if db then self:ApplyAnchorSettings() end
+    end
+    wasInArena = inA
+end
+
+local arenaRecheck = CreateFrame("Frame")
+arenaRecheck:Hide()
+arenaRecheck:SetScript("OnUpdate", function(self, elapsed)
+    self.t = (self.t or 0) + elapsed
+    if self.t < 2 then return end
+    self.t = 0; self:Hide()
+    PAB:CheckArenaEntry()
+end)
+
 function PAB:PLAYER_ENTERING_WORLD()
-    if InArena() then self:StopAllIcons(); self:ResetInspect() end
     if not pGUID then pGUID = UnitGUID("player") end
     if not pName then pName = UnitName("player") end
     self:UpdateAnchors(false); self:ResetAnchorsSpecAndItems()
+    self:CheckArenaEntry()
+    arenaRecheck.t = 0; arenaRecheck:Show()
+end
+
+function PAB:ZONE_CHANGED_NEW_AREA()
+    self:CheckArenaEntry()
+    if db then self:ApplyAnchorSettings() end
 end
 
 function PAB:CheckAbility(anchor, ability, cooldown)
@@ -829,6 +869,7 @@ end
 local function PAB_OnLoad(self)
     self:UnregisterEvent("VARIABLES_LOADED")
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     self:RegisterEvent("PARTY_MEMBERS_CHANGED")
     self:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
     self:RegisterEvent("PLAYER_LOGOUT")
